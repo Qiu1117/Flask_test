@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>User Login</title>
+    <style>
+        .button {
+            display: flex;
+            background-color: #4caf50;
+            gap: 10px;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            font-size: 14px;
+            margin: 5px 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>User Login</h1>
+    <form method="POST" action="/login">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required><br><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required><br><br>
+        <form method="POST" action="/login">
+            <input class="button" type="submit" value="Login">
+        </form>
+    </form>
+    <form action="/register" method="GET">
+        <button class="button" type="submit">Register</button>
+    </form>
+</body>
+
+</html>
