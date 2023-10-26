@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import (
     JWTManager,
@@ -13,6 +13,7 @@ from pymongo import MongoClient
 import pydicom
 from bson.objectid import ObjectId
 import os
+from io import BytesIO
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
@@ -92,20 +93,12 @@ def search_data_by_ip():
 @app.route("/get_file", methods=["GET"])
 def get_file():
     file_address = request.args.get("fileAddress")
-
-    # 根据文件地址发送文件内容作为响应
-    return send_file(file_address)
+    file_path = file_address
+    return send_file(file_path, mimetype="application/dicom")
 
 
 # ---------------------------------------用户和注册--------------------------
 users_collection = db["users"]
-
-# # 注销
-# @app.route("/logout")
-# def logout():
-#     # 清除用户登录状态
-#     session.pop("username", None)
-#     return redirect("/login")
 
 
 @app.route("/register", methods=["POST"])
@@ -139,6 +132,7 @@ def login():
     if user and check_password_hash(user["password"], password):
         # 生成访问令牌
         access_token = create_access_token(identity=str(user["_id"]))
+        session["username"] = username
         return jsonify({"access_token": access_token})
 
     return jsonify({"message": "Invalid username or password"}), 401
@@ -160,13 +154,13 @@ def verify_token():
         return jsonify({"valid": False, "message": "Invalid token"})
 
 
+@app.route("/logout", methods=["GET"])
+def logout():
+    session.pop("username", None)
+    return jsonify({"valid": True, "message": "Logged out successfully"})
+
+
 # ---------------------------------------用户和注册--------------------------
-
-
-# @app.route("/", defaults={"path": ""})
-# @app.route("/<path:path>")
-# def catch_allroute(path):
-#     return render_template("index.html")
 
 
 if __name__ == "__main__":
