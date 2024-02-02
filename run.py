@@ -4,6 +4,7 @@ import numpy as np
 import nibabel as nib
 from QMR.smooth.gaussian_blur import gaussian_blur
 import pydicom
+import time
 
 
 # %% MPFSL
@@ -52,16 +53,13 @@ def QMR_main(realctr, ictr, tsl):
     mpf = mpfsl.cal_mpf()
     mpf_result = (mpf * 100).astype(np.uint16)
 
-    image_path = r"C:\Users\Qiuyi\Desktop\uploads\mpf\Mpf_output.jpg"
-    plt.imshow(mpf, cmap="jet")
-    if colorbar is None:
-        # 只在第一次调用时生成颜色条
-        colorbar = plt.colorbar()
-    else:
-        # 其他调用时不生成新的颜色条
-        plt.colorbar(cax=colorbar.ax)
-    # plt.colorbar()
-    plt.savefig(image_path, format="jpeg", dpi=300, bbox_inches="tight")
+    # image_path = r"C:\Users\Qiuyi\Desktop\uploads\mpf\Mpf_output.jpg"
+    # plt.imshow(mpf, cmap="jet")
+    # if colorbar is None:
+    #     colorbar = plt.colorbar()
+    # else:
+    #     plt.colorbar(cax=colorbar.ax)
+    # plt.savefig(image_path, format="jpeg", dpi=300, bbox_inches="tight")
 
     ds = pydicom.dcmread(dyn_real1)
     ds.PixelData = mpf_result.tobytes()
@@ -84,10 +82,91 @@ def QMR_main(realctr, ictr, tsl):
     ds.RescaleIntercept = 0
     ds.RescaleSlope = 1
 
-    output_dicom_path = r"C:\Users\Qiuyi\Desktop\uploads\mpf\Mpf_output.dcm"
-    ds.save_as(output_dicom_path)
+    instance_uid = ds[0x08, 0x18].value
+    series_uid = ds[0x20, 0x0E].value
+    study_uid = ds[0x20, 0x0D].value
+    imageType = ds[0x08, 0x08].value
 
-    return
+    # test_uid = "1.2.826.0.1.3680043.10.1338"
+    fileNum = 1
+    index = 1
+    new_uid = generate_uid(instance_uid, fileNum, index, imageType)
+    ds[0x08, 0x18].value = new_uid
+
+    new_uid = generate_uid(series_uid, fileNum, index, imageType)
+    ds[0x20, 0x0E].value = new_uid
+
+    new_uid = generate_uid(study_uid, fileNum, index, imageType)
+    ds[0x20, 0x0D].value = new_uid
+
+    # output_dicom_path = r"C:\Users\Qiuyi\Desktop\uploads\mpf\Mpf_output.dcm"
+    # ds.save_as(output_dicom_path)
+
+    return ds
+
+
+def generate_checksum(uid):
+    uid_parts = uid.split(".")
+
+    sum_digits = [sum(int(digit) for digit in part) for part in uid_parts]
+
+    count_digits = [len(part) if len(part) % 9 != 0 else 9 for part in uid_parts]
+
+    checksum_digits = [
+        (int(sum_digit) % count_digit)
+        for sum_digit, count_digit in zip(sum_digits, count_digits)
+    ]
+
+    checksum = "".join(str(digit) for digit in checksum_digits)
+
+    if len(checksum) > 10:
+        checksum = checksum[:10]
+
+    return checksum
+
+
+def get_processing_type(image_type):
+    processing_dict = {
+        "QUANT": "1",
+        "MASK": "2",
+        "NORMAL": "3",
+        "OTHER": "4",
+    }
+
+    processing_type = ""
+
+    if len(image_type) >= 3:
+        part_three = image_type[2]
+
+        if part_three == "DEIDENT":
+            processing_type += "1"
+        else:
+            processing_type += "0"
+        processing_type += processing_dict.get(image_type[3], "")
+        return processing_type
+
+    return ""
+
+
+def generate_uid(uid, fileNum, index, image_type):
+    root_unique = "1.2.826.0.1.3680043.10.1338"
+    uid_version = ".001"
+
+    check_code = "." + generate_checksum(uid)
+
+    timestamp = "." + str(int(round(time.time() * 100)))
+
+    inputFileNum = "." + str(fileNum).zfill(2)
+
+    index = "." + str(index).zfill(2)
+
+    type = "." + get_processing_type(image_type)
+
+    new_uid = (
+        root_unique + uid_version + check_code + timestamp + inputFileNum + index + type
+    )
+
+    return new_uid
 
 
 # %% T1rho

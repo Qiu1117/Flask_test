@@ -22,7 +22,7 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
 jwt = JWTManager(app)
 app.secret_key = "cuhkdiir"
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient("mongodb://127.0.0.1:27017")
 db = client["Dicom"]
 
 UPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads"
@@ -31,7 +31,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 MPFUPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads\mpf"
 app.config["MPFUPLOAD_FOLDER"] = MPFUPLOAD_FOLDER
 
-orthanc_url = "http://localhost:8042"
+orthanc_url = "http://127.0.0.1:8042"
 
 
 # ---------------------------------------数据管理--------------------------
@@ -56,37 +56,14 @@ def upload():
 
     # --orthanc--
     for file_path in file_paths:
-        orthanc_url = "http://localhost:8042/instances"  # Orthanc的URL
+        upload_url = f"{orthanc_url}/instances"  # Orthanc的URL
         with open(file_path, "rb") as f:
             orthanc_files = {"file": (file_path, f, "application/dicom")}
-            response = requests.post(orthanc_url, files=orthanc_files)
+            response = requests.post(upload_url, files=orthanc_files)
             print(response)
     # --orthanc--
 
     return "Success upload"
-
-
-@app.route("/search_by_ip", methods=["GET"])
-def search_data_by_ip():
-    orthanc_url = "http://localhost:8042"
-    instances_url = f"{orthanc_url}/instances"
-    response = requests.get(instances_url)
-
-    if response.status_code == 200:
-        instances = response.json()
-        for instance_id in instances:
-            instance_url = f"{instances_url}/{instance_id}"
-            instance_response = requests.get(instance_url)
-            if instance_response.status_code == 200:
-                instance_info = instance_response.json()
-
-    orthanc_url = "http://localhost:8042//instances/25cb52ed-0f7f5402-ff7bb7e8-de7de598-64e4d2fb/file"
-    response = requests.get(orthanc_url)
-    file_path = r"C:\Users\Qiuyi\Desktop\uploads\orthanc\test.dcm"
-    with open(file_path, "wb") as file:
-        file.write(response.content)
-
-    return
 
 
 @app.route("/search_AllPatient", methods=["GET"])
@@ -101,14 +78,12 @@ def search_AllPatient():
             ID = patients[i]["ID"]
             patient_Name = patients[i]["MainDicomTags"]["PatientName"]
             patient_ID = patients[i]["MainDicomTags"]["PatientID"]
-            patient_Birthday = patients[i]["MainDicomTags"]["PatientBirthDate"]
             patient_Studies = patients[i]["Studies"]
 
             patient_dict = {
                 "ID": ID,
                 "PatientName": patient_Name,
                 "PatientID": patient_ID,
-                "PatientBirthday": patient_Birthday,
                 "Studies": patient_Studies,
             }
             patients_list.append(patient_dict)
@@ -160,7 +135,7 @@ def search_Study():
             study_ID = study_info[i]["ID"]
             study_Description = study_info[i]["MainDicomTags"]["0008,1030"]["Value"]
             study_Date = study_info[i]["MainDicomTags"]["0008,0020"]["Value"]
-            study_InstanceUID = study_info[i]["MainDicomTags"]["0020,000d"]["Value"]
+            study_UID = study_info[i]["MainDicomTags"]["0020,000d"]["Value"]
             study_Accessnumber = study_info[i]["MainDicomTags"]["0008,0050"]["Value"]
             study_Series = study_info[i]["Series"]
 
@@ -168,7 +143,7 @@ def search_Study():
                 "ID": study_ID,
                 "study_Description": study_Description,
                 "study_Date": study_Date,
-                "study_InstanceUID": study_InstanceUID,
+                "study_UID": study_UID,
                 "study_Accessnumber": study_Accessnumber,
                 "study_Series": study_Series,
             }
@@ -189,7 +164,6 @@ def search_Series():
         series_info = series_response.json()
         for i in range(len(series_info)):
             series_ID = series_info[i]["ID"]
-            series_Description = series_info[i]["MainDicomTags"]["0040,0254"]["Value"]
             series_Modality = series_info[i]["MainDicomTags"]["0008,0060"]["Value"]
             series_SeriesInstanceUID = series_info[i]["MainDicomTags"]["0020,000e"][
                 "Value"
@@ -200,7 +174,6 @@ def search_Series():
 
             series_dict = {
                 "ID": series_ID,
-                "Description": series_Description,
                 "Modality": series_Modality,
                 "SeriesNumber": series_SeriesNumber,
                 "SeriesInstanceUID": series_SeriesInstanceUID,
@@ -240,51 +213,34 @@ def search_Instance():
 def get_Instance():
     Instances_url = f"{orthanc_url}/instances"
     Instances_id = request.args.get("instance_ID")
-
     Instance_url = f"{Instances_url}/{Instances_id}"
-    instance_response = requests.get(Instance_url)
-    if instance_response.status_code == 200:
-        instance_info = instance_response.json()
-        instance_ID = instance_info["ID"]
-        instance_ParentSeries = instance_info["ParentSeries"]
+    download_url = f"{Instance_url}/file"
+    response = requests.get(download_url)
 
-        download_url = f"{Instance_url}/file"
-        response = requests.get(download_url)
-        folder_path = f"C:\\Users\\Qiuyi\\Desktop\\uploads\\{instance_ParentSeries}"
-        os.makedirs(folder_path, exist_ok=True)
-        file_path = f"C:\\Users\\Qiuyi\\Desktop\\uploads\\{instance_ParentSeries}\\{instance_ID}.dcm"
-        with open(file_path, "wb") as file:
-            file.write(response.content)
-
-        return send_file(file_path, mimetype="application/dicom")
-
-    return "File does not exist!"
+    return response.content
 
 
-@app.route("/delete-files", methods=["POST"])
+@app.route("/delete-files", methods=["DELETE"])
 def deletefiles():
-    Instances_id = request.args.get("instance_ID")
-    Instances_url = f"{orthanc_url}/instances"
-    Instances_id = request.args.get("instance_ID")
+    fileClass = request.args.get("file_Class")
+    fileID = request.args.get("file_ID")
 
-    instance_dict = {}
-    Instance_url = f"{Instances_url}/{Instances_id}"
-    instance_response = requests.get(Instance_url)
-    if instance_response.status_code == 200:
-        instance_info = instance_response.json()
-        instance_ID = instance_info["ID"]
-        instance_SOPInstanceUID = instance_info["MainDicomTags"]["SOPInstanceUID"]
+    deleteUrl = f"{orthanc_url}/{fileClass}/{fileID}"
 
-        instance_dict = {"ID": instance_ID, "SOPInstanceUID": instance_SOPInstanceUID}
-
-    return jsonify("Success delete selected files!")
+    delete_response = requests.delete(deleteUrl)
+    if delete_response.status_code == 200:
+        return jsonify("Success delete selected files!")
+    return jsonify("Fail to delete selected files!")
 
 
-@app.route("/get_file", methods=["GET"])
-def get_file():
-    file_address = request.args.get("fileAddress")
-    file_path = file_address
-    return send_file(file_path, mimetype="application/dicom")
+@app.route("/proxy/<path:url_path>", methods=["GET"])
+def get_file(url_path):
+    print(url_path)
+    orthanc_backend = "http://localhost:8042/dicom-web"
+    file_url = f"{orthanc_backend}/{url_path}"
+    response = requests.get(file_url)
+
+    return response.content
 
 
 # ---------------------------------------数据管理--------------------------
@@ -358,63 +314,51 @@ def logout():
 # ---------------------------------------mpf--------------------------------
 @app.route("/mpf", methods=["POST"])
 def rmpfsl_cal():
-    files = []
     realctr = []
     ictr = []
     tsl = float(request.args.get("tsl"))
-    for key in request.files.keys():
-        if key.startswith("file"):
-            files.extend(request.files.getlist(key))
 
-    if len(files) == 0:
+    if len(request.json["files"]) == 0:
         return "No files uploaded."
 
-    # client_ip = request.remote_addr
-    # collection_name = f"collection_{client_ip.replace('.', '_')}"
-    # if db.get_collection(collection_name) is not None:
-    #     collection = db[collection_name]
-    # else:
-    #     collection = db.create_collection(collection_name)
-    for file in files:
-        if file.filename == "":
-            return "Empty filename."
+    file_list = request.json["files"]
+    for i in range(0, len(file_list), 2):
+        item1 = file_list[i]
+        item2 = file_list[i + 1] if i + 1 < len(file_list) else None
 
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-        file.save(file_path)
+        instance_name1, instance_id1 = next(iter(item1.items()))
+        Instance_url1 = f"{orthanc_url}/instances/{instance_id1['id']}/file"
+        response1 = requests.get(Instance_url1)
+        file_path1 = os.path.join(app.config["UPLOAD_FOLDER"], instance_name1)
+        with open(file_path1, "wb") as file1:
+            file1.write(response1.content)
+        ds1 = pydicom.dcmread(file_path1)
+        if ds1.ImageType[3] in ["R", "r"]:
+            realctr.append(file_path1)
+        elif ds1.ImageType[3] in ["I", "i"]:
+            ictr.append(file_path1)
 
-        ds = pydicom.dcmread(file_path)
-        sop_instance_uid = ds.SOPInstanceUID
-        # existing_doc = collection.find_one({"sopInstanceUID": sop_instance_uid})
+        instance_name2, instance_id2 = next(iter(item2.items()))
+        Instance_url2 = f"{orthanc_url}/instances/{instance_id2['id']}/file"
+        response2 = requests.get(Instance_url2)
+        file_path2 = os.path.join(app.config["UPLOAD_FOLDER"], instance_name2)
+        with open(file_path2, "wb") as file2:
+            file2.write(response2.content)
+        ds2 = pydicom.dcmread(file_path2)
+        if ds2.ImageType[3] in ["R", "r"]:
+            realctr.append(file_path2)
+        elif ds2.ImageType[3] in ["I", "i"]:
+            ictr.append(file_path2)
 
-        # if existing_doc is None:
-        #     patient_name = ds.PatientName
-        #     pixel_size = {"width": ds.Columns, "height": ds.Rows}
-        #     pixel_data_type = ds.pixel_array.dtype.name
+        if len(realctr) != len(ictr):
+            return jsonify({"message": "Real and imaginary data do not match"}), 500
 
-        #     dicom_metadata = {
-        #         "fileName": file.filename,
-        #         "sopInstanceUID": sop_instance_uid,
-        #         "patientName": str(patient_name),
-        #         "pixelSize": pixel_size,
-        #         "pixelDataType": pixel_data_type,
-        #         "address": file_path,
-        #         "clientIP": client_ip,
-        #     }
-        #     collection.insert_one(dicom_metadata)
-        if ds.ImageType[3] in ["R", "r"]:
-            realctr.append(file_path)
-        elif ds.ImageType[3] in ["I", "i"]:
-            ictr.append(file_path)
+    result = QMR_main(realctr, ictr, tsl)
+    accession_number = result.AccessionNumber
+    output_dicom_path = os.path.join(app.config["UPLOAD_FOLDER"], accession_number)
+    result.save_as(output_dicom_path)
 
-    time.sleep(1)
-    if len(realctr) == len(ictr):
-        QMR_main(realctr, ictr, tsl)
-    else:
-        return "real and imaginer does not match !"
-
-    image_path = r"C:\Users\Qiuyi\Desktop\uploads\mpf\Mpf_output.dcm"
-    return send_file(image_path, mimetype="application/dicom")
-    # return
+    return send_file(output_dicom_path, mimetype="application/dicom")
 
 
 # ---------------------------------------mpf--------------------------------
