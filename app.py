@@ -1,29 +1,18 @@
 from flask import Flask, request, jsonify, send_file, session
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import (
-    JWTManager,
-    create_access_token,
-    decode_token,
-    jwt_required,
-    get_jwt_identity,
-)
-from jwt.exceptions import ExpiredSignatureError
+from flask_jwt_extended import JWTManager
 from flask_cors import CORS
-from pymongo import MongoClient
-import pydicom
-from bson.objectid import ObjectId
-import os
-import time
 import json
+import pydicom
+import os
 import requests
-from run import QMR_main
+from MPF_Cal import mpf
+from User_DB import user, verify_token
+
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
 jwt = JWTManager(app)
 app.secret_key = "cuhkdiir"
-client = MongoClient("mongodb://127.0.0.1:27017")
-db = client["Dicom"]
 
 UPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -36,6 +25,7 @@ orthanc_url = "http://127.0.0.1:8042"
 
 # ---------------------------------------数据管理--------------------------
 @app.route("/upload", methods=["POST"])
+# @verify_token()
 def upload():
     files = []
     for key in request.files.keys():
@@ -49,8 +39,8 @@ def upload():
     for file in files:
         if file.filename == "":
             return "Empty filename."
-
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+        file_name = file.filename.replace("/", "_")
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], file_name)
         file.save(file_path)
         file_paths.append(file_path)
 
@@ -67,6 +57,7 @@ def upload():
 
 
 @app.route("/search_AllPatient", methods=["GET"])
+# @verify_token()
 def search_AllPatient():
     Patient_url = f"{orthanc_url}/patients?expand"
     response = requests.get(Patient_url)
@@ -92,6 +83,7 @@ def search_AllPatient():
 
 
 @app.route("/search_AllStudy", methods=["GET"])
+# @verify_token()
 def search_AllStudy():
     Study_url = f"{orthanc_url}/studies?expand"
 
@@ -122,6 +114,7 @@ def search_AllStudy():
 
 
 @app.route("/search_Study", methods=["GET"])
+# @verify_token()
 def search_Study():
     patient_id = request.args.get("PatientID")
 
@@ -153,6 +146,7 @@ def search_Study():
 
 
 @app.route("/search_Series", methods=["GET"])
+# @verify_token()
 def search_Series():
     study_id = request.args.get("StudyID")
 
@@ -186,6 +180,7 @@ def search_Series():
 
 
 @app.route("/search_Instance", methods=["GET"])
+# @verify_token()
 def search_Instance():
     series_ID = request.args.get("SeriesID")
 
@@ -210,6 +205,7 @@ def search_Instance():
 
 
 @app.route("/get_Instance", methods=["GET"])
+# @verify_token()
 def get_Instance():
     Instances_url = f"{orthanc_url}/instances"
     Instances_id = request.args.get("instance_ID")
@@ -221,19 +217,34 @@ def get_Instance():
 
 
 @app.route("/delete-files", methods=["DELETE"])
+# @verify_token()
 def deletefiles():
-    fileClass = request.args.get("file_Class")
-    fileID = request.args.get("file_ID")
+    delete_dict = {
+        "Patient": "patients",
+        "Series": "series",
+        "Study": "studies",
+        "Instances": "instances",
+    }
+    fileClass_list = request.args.get("file_Class")
+    fileClass_list = json.loads(fileClass_list)
+    print(fileClass_list)
+    fileID_list = request.args.get("file_ID")
+    fileID_list = json.loads(fileID_list)
 
-    deleteUrl = f"{orthanc_url}/{fileClass}/{fileID}"
+    for i in range(len(fileID_list)):
+        fileID = fileID_list[i]
+        fileClass = delete_dict[fileClass_list[i]]
+        deleteUrl = f"{orthanc_url}/{fileClass}/{fileID}"
 
-    delete_response = requests.delete(deleteUrl)
-    if delete_response.status_code == 200:
-        return jsonify("Success delete selected files!")
-    return jsonify("Fail to delete selected files!")
+        delete_response = requests.delete(deleteUrl)
+        if delete_response.status_code != 200:
+            return jsonify("Fail to delete selected files!")
+
+    return jsonify("Success delete selected files!")
 
 
 @app.route("/proxy/<path:url_path>", methods=["GET"])
+# @verify_token()
 def get_file(url_path):
     print(url_path)
     orthanc_backend = "http://localhost:8042/dicom-web"
@@ -246,122 +257,11 @@ def get_file(url_path):
 # ---------------------------------------数据管理--------------------------
 
 # ---------------------------------------用户和注册--------------------------
-users_collection = db["users"]
-
-
-@app.route("/register", methods=["POST"])
-def register():
-    username = request.json["username"]
-    password = request.json["password"]
-
-    # 检查用户名是否已存在
-    existing_user = users_collection.find_one({"username": username})
-    if existing_user:
-        return jsonify({"message": "Username already exists"}), 400
-
-    # 创建新用户
-    hashed_password = generate_password_hash(password)
-    user_id = users_collection.insert_one(
-        {"username": username, "password": hashed_password}
-    ).inserted_id
-
-    return jsonify({"user_id": str(user_id)}), 201
-
-
-# 用户登录接口
-@app.route("/login", methods=["POST"])
-def login():
-    username = request.json["username"]
-    password = request.json["password"]
-
-    # 根据用户名查找用户
-    user = users_collection.find_one({"username": username})
-
-    if user and check_password_hash(user["password"], password):
-        # 生成访问令牌
-        access_token = create_access_token(identity=str(user["_id"]))
-        session["username"] = username
-        return jsonify({"access_token": access_token})
-
-    return jsonify({"message": "Invalid username or password"}), 401
-
-
-@app.route("/verify-token", methods=["POST"])
-def verify_token():
-    token = request.json.get("token")
-    try:
-        decoded_token = decode_token(token)
-        user_id = decoded_token["sub"]
-        user = users_collection.find_one({"_id": ObjectId(user_id)})
-        if user:
-            return jsonify({"valid": True, "sub": user_id})
-
-    except ExpiredSignatureError:
-        return jsonify({"valid": False, "message": "Token has expired"})
-    except Exception as e:
-        return jsonify({"valid": False, "message": "Invalid token"})
-
-
-@app.route("/logout", methods=["GET"])
-def logout():
-    session.pop("username", None)
-    return jsonify({"valid": True, "message": "Logged out successfully"})
-
-
-# ---------------------------------------用户和注册--------------------------
+app.register_blueprint(user)
 
 
 # ---------------------------------------mpf--------------------------------
-@app.route("/mpf", methods=["POST"])
-def rmpfsl_cal():
-    realctr = []
-    ictr = []
-    tsl = float(request.args.get("tsl"))
-
-    if len(request.json["files"]) == 0:
-        return "No files uploaded."
-
-    file_list = request.json["files"]
-    for i in range(0, len(file_list), 2):
-        item1 = file_list[i]
-        item2 = file_list[i + 1] if i + 1 < len(file_list) else None
-
-        instance_name1, instance_id1 = next(iter(item1.items()))
-        Instance_url1 = f"{orthanc_url}/instances/{instance_id1['id']}/file"
-        response1 = requests.get(Instance_url1)
-        file_path1 = os.path.join(app.config["UPLOAD_FOLDER"], instance_name1)
-        with open(file_path1, "wb") as file1:
-            file1.write(response1.content)
-        ds1 = pydicom.dcmread(file_path1)
-        if ds1.ImageType[3] in ["R", "r"]:
-            realctr.append(file_path1)
-        elif ds1.ImageType[3] in ["I", "i"]:
-            ictr.append(file_path1)
-
-        instance_name2, instance_id2 = next(iter(item2.items()))
-        Instance_url2 = f"{orthanc_url}/instances/{instance_id2['id']}/file"
-        response2 = requests.get(Instance_url2)
-        file_path2 = os.path.join(app.config["UPLOAD_FOLDER"], instance_name2)
-        with open(file_path2, "wb") as file2:
-            file2.write(response2.content)
-        ds2 = pydicom.dcmread(file_path2)
-        if ds2.ImageType[3] in ["R", "r"]:
-            realctr.append(file_path2)
-        elif ds2.ImageType[3] in ["I", "i"]:
-            ictr.append(file_path2)
-
-        if len(realctr) != len(ictr):
-            return jsonify({"message": "Real and imaginary data do not match"}), 500
-
-    result = QMR_main(realctr, ictr, tsl)
-    accession_number = result.AccessionNumber
-    output_dicom_path = os.path.join(app.config["UPLOAD_FOLDER"], accession_number)
-    result.save_as(output_dicom_path)
-
-    return send_file(output_dicom_path, mimetype="application/dicom")
-
-
-# ---------------------------------------mpf--------------------------------
+app.register_blueprint(mpf)
 
 
 if __name__ == "__main__":

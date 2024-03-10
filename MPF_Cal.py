@@ -5,12 +5,21 @@ import nibabel as nib
 from QMR.smooth.gaussian_blur import gaussian_blur
 import pydicom
 import time
+import requests
+from flask import request, Blueprint, send_file, jsonify
+import os
+from User_DB import user, verify_token
 
 
 # %% MPFSL
 from QMR.MPFSL import MPFSL
 
 colorbar = None
+mpf = Blueprint("mpf", __name__)
+
+UPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads"
+MPFUPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads\mpf"
+orthanc_url = "http://127.0.0.1:8042"
 
 
 def QMR_main(realctr, ictr, tsl):
@@ -167,6 +176,56 @@ def generate_uid(uid, fileNum, index, image_type):
     )
 
     return new_uid
+
+
+@mpf.route("/mpf", methods=["POST"])
+# @verify_token()
+def rmpfsl_cal():
+    realctr = []
+    ictr = []
+    tsl = float(request.args.get("tsl"))
+
+    if len(request.json["files"]) == 0:
+        return "No files uploaded."
+
+    file_list = request.json["files"]
+    for i in range(0, len(file_list), 2):
+        item1 = file_list[i]
+        item2 = file_list[i + 1] if i + 1 < len(file_list) else None
+
+        instance_name1, instance_id1 = next(iter(item1.items()))
+        Instance_url1 = f"{orthanc_url}/instances/{instance_id1['id']}/file"
+        response1 = requests.get(Instance_url1)
+        file_path1 = os.path.join(UPLOAD_FOLDER, instance_name1)
+        with open(file_path1, "wb") as file1:
+            file1.write(response1.content)
+        ds1 = pydicom.dcmread(file_path1)
+        if ds1.ImageType[3] in ["R", "r"]:
+            realctr.append(file_path1)
+        elif ds1.ImageType[3] in ["I", "i"]:
+            ictr.append(file_path1)
+
+        instance_name2, instance_id2 = next(iter(item2.items()))
+        Instance_url2 = f"{orthanc_url}/instances/{instance_id2['id']}/file"
+        response2 = requests.get(Instance_url2)
+        file_path2 = os.path.join(UPLOAD_FOLDER, instance_name2)
+        with open(file_path2, "wb") as file2:
+            file2.write(response2.content)
+        ds2 = pydicom.dcmread(file_path2)
+        if ds2.ImageType[3] in ["R", "r"]:
+            realctr.append(file_path2)
+        elif ds2.ImageType[3] in ["I", "i"]:
+            ictr.append(file_path2)
+
+        if len(realctr) != len(ictr):
+            return jsonify({"message": "Real and imaginary data do not match"}), 500
+
+    result = QMR_main(realctr, ictr, tsl)
+    accession_number = result.AccessionNumber
+    output_dicom_path = os.path.join(UPLOAD_FOLDER, accession_number)
+    result.save_as(output_dicom_path)
+
+    return send_file(output_dicom_path, mimetype="application/dicom")
 
 
 # %% T1rho
