@@ -11,6 +11,7 @@ from jwt.exceptions import ExpiredSignatureError
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 from functools import wraps
+from db_models import Account, Group, Acc_Group, Dataset_Group
 
 
 # from middleware import token_required
@@ -26,39 +27,58 @@ users_collection = db["users"]
 
 @user.route("/register", methods=["POST"])
 def register():
-    username = request.json["username"]
-    password = request.json["password"]
+    try:
+        data = request.get_json()   
+        username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
+        role = data.get('role')
 
-    # 检查用户名是否已存在
-    existing_user = users_collection.find_one({"username": username})
-    if existing_user:
-        return jsonify({"message": "Username already exists"}), 400
+        if not username or not email or not password:
+            return jsonify({'message': 'Missing data'}), 400
 
-    # 创建新用户
-    hashed_password = generate_password_hash(password)
-    user_id = users_collection.insert_one(
-        {"username": username, "password": hashed_password}
-    ).inserted_id
+        if Account.query.filter_by(username=username).first() is not None:
+            return jsonify({'message': 'User already exists'}), 409
+        
+        new_user = Account(
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password),
+            role=role
+        )
 
-    return jsonify({"user_id": str(user_id)}), 201
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # 用户登录接口
 @user.route("/login", methods=["POST"])
 def login():
-    username = request.json["username"]
-    password = request.json["password"]
+    """
+    file: swagger/login.yml
+    """
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
 
-    # 根据用户名查找用户
-    user = users_collection.find_one({"username": username})
+        login_info = Account.query.filter_by(username=username).first()
+        if login_info and check_password_hash(login_info.password_hash, password):
+            token = jwt.encode(
+                {"account_id": login_info.id, "role": int(login_info.role)},
+                current_app.config["SECRET_KEY"],
+                algorithm="HS256",
+            )
+            return jsonify({"status": "ok", "data": {"token": token}})
+        else:
+            return jsonify({"status": "error", "message": "No such account!"})
 
-    if user and check_password_hash(user["password"], password):
-        # 生成访问令牌
-        access_token = create_access_token(identity=str(user["_id"]))
-        session["username"] = username
-        return jsonify({"access_token": access_token})
-
-    return jsonify({"message": "Invalid username or password"}), 401
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @user.route("/logout", methods=["GET"])
@@ -73,20 +93,59 @@ def verify_token(check_admin=False):
         def inner(*args, **kwargs):
             token = None
 
-            if "token" in request.headers:
-                token = request.headers["token"]
-            try:
-                decoded_token = decode_token(token)
-                user_id = decoded_token["sub"]
-                user = users_collection.find_one({"_id": ObjectId(user_id)})
-                # if user:
-                #     return jsonify({"valid": True, "sub": user_id})
-                return f(*args, **kwargs)
-            except ExpiredSignatureError:
-                return jsonify({"valid": False, "message": "Token has expired"})
-            except Exception as e:
-                return jsonify({"valid": False, "message": "Invalid token"})
+            error_token_missing = 0
+            if "Authorization" in request.headers:
+                if (
+                    request.headers["Authorization"]
+                    and len(request.headers["Authorization"].split(" ")) == 2
+                ):
+                    token = request.headers["Authorization"].split(" ")[1]
+                else:
+                    error_token_missing = 1
+            else:
+                error_token_missing = 1
+            if not token:
+                error_token_missing = 1
 
+            if error_token_missing:
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": "Authentication token is missing or misformated",
+                        }
+                    ),
+                    400,
+                )
+
+            try:
+                data = jwt.decode(
+                    token, current_app.config["SECRET_KEY"], algorithms=["HS256"]
+                )
+            except Exception as e:
+                return jsonify({"status": "error", "message": "Invalid JWT"}), 401
+
+            try:
+                role = data["role"]
+                g.account_id = data["account_id"]
+            except Exception as e:
+                return (
+                    jsonify(
+                        {"status": "error", "message": "Wrong content encoded in JWT"}
+                    ),
+                    401,
+                )
+
+            else:
+                if check_admin and role != 1:
+                    return (
+                        jsonify(
+                            {"status": "error", "message": "Required admin account"}
+                        ),
+                        401,
+                    )
+                else:
+                    return f(*args, **kwargs)
         return inner
 
     return decorated
