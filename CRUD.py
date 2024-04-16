@@ -4,7 +4,6 @@ import sqlite3
 from User_DB import verify_token
 import json
 import shortuuid
-import config 
 from flask import g
 from flask_cors import CORS
 from db_models import db, Account, Group, Acc_Group, Dataset_Group
@@ -12,14 +11,6 @@ from sqlalchemy.types import Unicode
 
 crud = Blueprint('crud', __name__)
 
-
-@crud.route("/get_lang_map", methods=["GET"])
-@verify_token(check_admin=True)
-def get_lang_map():
-    try:
-        return jsonify({'status':'ok', 'data': config.lang_map})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
 
 
 @crud.route(

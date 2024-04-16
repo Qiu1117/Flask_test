@@ -1,18 +1,29 @@
 from flask import Flask, request, jsonify, send_file, session
-from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask import g
 import json
-import pydicom
 import os
 import requests
 from MPF_Cal import mpf
 from User_DB import user, verify_token
+from flask import current_app
+from CRUD import crud
+from db_models import db
+from config import ProductionConfig
+from flask_migrate import Migrate
+from db_models import Account, Dataset, Group
 
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(__name__)
+app.config.from_object(ProductionConfig)
 CORS(app)
-jwt = JWTManager(app)
-app.secret_key = "cuhkdiir"
+db.init_app(app)  # init database
+migrate = Migrate(app, db)
+
+with app.app_context():
+    db.create_all()
+
+# app.secret_key = "cuhkdiir"
 
 UPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -48,8 +59,10 @@ def upload():
     for file_path in file_paths:
         upload_url = f"{orthanc_url}/instances"  # Orthanc的URL
         with open(file_path, "rb") as f:
-            orthanc_files = {"file": (file_path, f, "application/dicom")}
-            response = requests.post(upload_url, files=orthanc_files)
+            files = f.read()
+            response = requests.post(
+                upload_url, data=files, headers={"Content-Type": "application/dicom"}
+            )
             print(response)
     # --orthanc--
 
@@ -255,6 +268,7 @@ def get_file(url_path):
 
 
 # ---------------------------------------数据管理--------------------------
+app.register_blueprint(crud)
 
 # ---------------------------------------用户和注册--------------------------
 app.register_blueprint(user)

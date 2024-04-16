@@ -54,22 +54,6 @@ class Account(Base):
     notification = db.Column(JSON)
 
 
-class Archive(Base):
-    __tablename__ = 'Archive'
-
-    id = db.Column(Integer, primary_key=True, autoincrement=True)
-    archive_name = db.Column(String(40), nullable=False, index=True)
-    description = db.Column(Text)
-    research_focus = db.Column(Text)
-    root_link = db.Column(String(300))
-    paper_link = db.Column(String(300))
-    total_case_amount = db.Column(Integer)
-    recorded_amount = db.Column(Integer)
-    crawlable = db.Column(Boolean)
-    upload_features = db.Column(Text)
-    download_features = db.Column(Text)
-
-
 class Dataset(Base):
     __tablename__ = 'Dataset'
 
@@ -90,9 +74,6 @@ class Dataset(Base):
 
     owner = db.Column(Integer, ForeignKey(Account.id))
     belongto_acc = relationship('Account', backref="contains")
-
-    archive_id = db.Column(Integer, ForeignKey(Archive.id))
-    belongto_arc = relationship('Archive', backref="contains")
 
 
 class Group(Base):

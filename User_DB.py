@@ -1,15 +1,10 @@
 from flask import Flask, request, jsonify, send_file, session, Blueprint
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import (
-    JWTManager,
-    create_access_token,
-    decode_token,
-    jwt_required,
-    get_jwt_identity,
-)
-from jwt.exceptions import ExpiredSignatureError
-from bson.objectid import ObjectId
+import jwt
+from flask import g
+from flask import current_app
 from pymongo import MongoClient
+from db_models import db
 from functools import wraps
 from db_models import Account, Group, Acc_Group, Dataset_Group
 
@@ -17,12 +12,7 @@ from db_models import Account, Group, Acc_Group, Dataset_Group
 # from middleware import token_required
 
 
-client = MongoClient("mongodb://127.0.0.1:27017")
-db = client["Dicom"]
-
 user = Blueprint("user", __name__)
-
-users_collection = db["users"]
 
 
 @user.route("/register", methods=["POST"])
@@ -58,9 +48,6 @@ def register():
 # 用户登录接口
 @user.route("/login", methods=["POST"])
 def login():
-    """
-    file: swagger/login.yml
-    """
     try:
         data = request.get_json()
         username = data.get("username")

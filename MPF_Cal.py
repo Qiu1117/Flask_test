@@ -36,14 +36,14 @@ def QMR_main(realctr, ictr, tsl):
     # dyn_img2 = "samples/0005_dyn_dicom/I0100.dcm"
     # dyn_img3 = "samples/0005_dyn_dicom/I0110.dcm"
     # dyn_img4 = "samples/0005_dyn_dicom/I0120.dcm"
-    dyn_real2 = realctr[0]
+    dyn_real1 = realctr[0]
+    dyn_real2 = realctr[2]
     dyn_real3 = realctr[1]
-    dyn_real1 = realctr[2]
     dyn_real4 = realctr[3]
 
     dyn_img1 = ictr[0]
-    dyn_img2 = ictr[1]
-    dyn_img3 = ictr[2]
+    dyn_img2 = ictr[2]
+    dyn_img3 = ictr[1]
     dyn_img4 = ictr[3]
 
     mpfsl = MPFSL(
