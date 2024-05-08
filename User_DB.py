@@ -7,6 +7,7 @@ from pymongo import MongoClient
 from db_models import db
 from functools import wraps
 from db_models import Account, Group, Acc_Group, Dataset_Group
+from CRUD import get_account_info
 
 
 # from middleware import token_required
@@ -48,10 +49,14 @@ def register():
 # 用户登录接口
 @user.route("/login", methods=["POST"])
 def login():
+    """
+    file: swagger/login.yml
+    """
     try:
         data = request.get_json()
         username = data.get("username")
         password = data.get("password")
+        fetch = data.get("fetch_type", [])
 
         login_info = Account.query.filter_by(username=username).first()
         if login_info and check_password_hash(login_info.password_hash, password):
@@ -60,7 +65,12 @@ def login():
                 current_app.config["SECRET_KEY"],
                 algorithm="HS256",
             )
-            return jsonify({"status": "ok", "data": {"token": token}})
+            if fetch:
+                infos = get_account_info(login_info.id, fetch)
+            else:
+                infos = get_account_info(login_info.id)
+
+            return jsonify({"status": "ok", "data": {"token": token, "infos": infos}})
         else:
             return jsonify({"status": "error", "message": "No such account!"})
 

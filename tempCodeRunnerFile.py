@@ -1,1 +1,1 @@
-from flask import g
+study_orthanc_id
