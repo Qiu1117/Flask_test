@@ -48,31 +48,31 @@ def get_Instance():
     return response.content
 
 
-@app.route("/delete-files", methods=["DELETE"])
-# @verify_token()
-def deletefiles():
-    delete_dict = {
-        "Patient": "patients",
-        "Series": "series",
-        "Study": "studies",
-        "Instances": "instances",
-    }
-    fileClass_list = request.args.get("file_Class")
-    fileClass_list = json.loads(fileClass_list)
-    print(fileClass_list)
-    fileID_list = request.args.get("file_ID")
-    fileID_list = json.loads(fileID_list)
+# @app.route("/delete-files", methods=["DELETE"])
+# # @verify_token()
+# def deletefiles():
+#     delete_dict = {
+#         "Patient": "patients",
+#         "Series": "series",
+#         "Study": "studies",
+#         "Instances": "instances",
+#     }
+#     fileClass_list = request.args.get("file_Class")
+#     fileClass_list = json.loads(fileClass_list)
+#     print(fileClass_list)
+#     fileID_list = request.args.get("file_ID")
+#     fileID_list = json.loads(fileID_list)
 
-    for i in range(len(fileID_list)):
-        fileID = fileID_list[i]
-        fileClass = delete_dict[fileClass_list[i]]
-        deleteUrl = f"{orthanc_url}/{fileClass}/{fileID}"
+#     for i in range(len(fileID_list)):
+#         fileID = fileID_list[i]
+#         fileClass = delete_dict[fileClass_list[i]]
+#         deleteUrl = f"{orthanc_url}/{fileClass}/{fileID}"
 
-        delete_response = requests.delete(deleteUrl)
-        if delete_response.status_code != 200:
-            return jsonify("Fail to delete selected files!")
+#         delete_response = requests.delete(deleteUrl)
+#         if delete_response.status_code != 200:
+#             return jsonify("Fail to delete selected files!")
 
-    return jsonify("Success delete selected files!")
+#     return jsonify("Success delete selected files!")
 
 
 @app.route("/proxy/<path:url_path>", methods=["GET"])

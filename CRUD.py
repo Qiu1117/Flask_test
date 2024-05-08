@@ -555,6 +555,7 @@ def _get_accessible_datasets_from_account(account_id):
                     "group_name": None,
                     "dataset_id": dataset.id,
                     "dataset_name": dataset.dataset_name,
+                    "valid": dataset.valid,
                     "owner": owner,
                     "editable": None,
                     "can_upload_dataset": None,
@@ -567,6 +568,7 @@ def _get_accessible_datasets_from_account(account_id):
                     "group_name": group.group_name,
                     "dataset_id": dataset.id,
                     "dataset_name": dataset.dataset_name,
+                    "valid": dataset.valid,
                     "owner": owner,
                     "editable": acc_group.editable,
                     "can_upload_dataset": acc_group.can_upload_dataset,
@@ -1281,10 +1283,11 @@ def search_Patient():
         })
     return jsonify(patient_dict)
 
+
 @crud.route("/view_study_by_patient", methods=["GET"])
 @token_required()
 def search_study():
-
+ 
     dataset_id = request.args['dataset_id']
     patient_id = request.args["patient_id"]
 
@@ -1304,7 +1307,6 @@ def search_study():
             study_dict.append(info)
 
     return jsonify(study_dict)
-
 
 def _get_study_info(study_orthanc_id):
     Study_url = f"{orthanc_url}/studies/{study_orthanc_id}?=short"
@@ -1411,3 +1413,93 @@ def _get_instance_info(instance_orthanc_id):
         }
 
     return instance_dict
+
+
+@crud.route("/delete-files", methods=["DELETE"])
+@token_required()
+@permission_check(type='dataset', options='editable')
+def deletefiles():
+
+    file_data = request.get_json()
+    Dataset_ID = file_data["dataset_id"]
+    dataset_fileClass_list = file_data["dataset_file_Class"]
+    dataset_fileID_list = file_data["dataset_file_ID"]
+
+    delete_files_list = {
+        "Patient": [],
+        "Study": [],
+        "Series": [],
+        "Instances": []
+    }
+
+    for file_class, file_id in zip(dataset_fileClass_list, dataset_fileID_list):
+        if file_class in delete_files_list:
+            delete_files_list[file_class].append(file_id)
+
+    patient_orthanc_ids = delete_files_list["Patient"]
+    patient_pair = Dataset_Patients.query.filter(
+        and_(
+            Dataset_Patients.patient_orthanc_id.in_(patient_orthanc_ids),
+            Dataset_Patients.dataset_id == Dataset_ID,
+        )
+    ).all()
+    if (patient_pair):
+        for p in patient_pair:
+            p.valid = False
+        db.session.commit()
+
+    study_orthanc_ids = delete_files_list["Study"]
+    study_pair = Dataset_Studies.query.filter(
+        and_(
+            Dataset_Studies.study_orthanc_id.in_(study_orthanc_ids),
+            Dataset_Studies.dataset_id == Dataset_ID,
+        )
+    ).all()
+    if study_pair:
+        for s in study_pair:
+            s.valid = False
+        db.session.commit()
+
+    series_orthanc_ids = delete_files_list["Series"]
+    series_pair = Dataset_Series.query.filter(
+        and_(
+            Dataset_Series.series_orthanc_id.in_(series_orthanc_ids),
+            Dataset_Series.dataset_id == Dataset_ID,
+        )
+    ).all()
+    if series_pair:
+        for s in series_pair:
+            s.valid = False
+        db.session.commit()
+
+    instance_orthanc_ids = delete_files_list["Instances"]
+    instance_pair = Dataset_Instances.query.filter(
+        and_(
+            Dataset_Instances.instance_orthanc_id.in_(instance_orthanc_ids)
+        )
+    ).all()
+    if instance_pair:
+        for i in instance_pair:
+            i.status = 1
+        db.session.commit()
+
+    # fileClass_list = file_data["file_Class"]
+    # fileID_list = file_data["file_ID"]
+    
+    # delete_dict = {
+    #     "Patient": "patients",
+    #     "Series": "series",
+    #     "Study": "studies",
+    #     "Instances": "instances",
+    # }
+    
+    # for i in range(len(fileID_list)):
+    #     fileID = fileID_list[i]
+    #     fileClass = delete_dict[fileClass_list[i]]
+    #     deleteUrl = f"{orthanc_url}/{fileClass}/{fileID}"
+
+    #     delete_response = requests.delete(deleteUrl)
+    #     if delete_response.status_code != 200:
+    #         return jsonify("Fail to delete selected files!")
+
+    return jsonify("Success delete selected files!")
