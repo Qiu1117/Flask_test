@@ -8,6 +8,7 @@ import time
 import requests
 from flask import request, Blueprint, send_file, jsonify
 import os
+from io import BytesIO
 from User_DB import user, verify_token
 
 
@@ -221,8 +222,8 @@ def rmpfsl_cal():
             return jsonify({"message": "Real and imaginary data do not match"}), 500
 
     result = QMR_main(realctr, ictr, tsl)
-    accession_number = result.AccessionNumber
-    output_dicom_path = os.path.join(UPLOAD_FOLDER, accession_number)
+    SOPInstanceUID = result.SOPInstanceUID
+    output_dicom_path = os.path.join(UPLOAD_FOLDER, SOPInstanceUID)
     result.save_as(output_dicom_path)
 
     return send_file(output_dicom_path, mimetype="application/dicom")
