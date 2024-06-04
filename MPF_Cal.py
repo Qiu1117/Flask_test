@@ -1,15 +1,29 @@
 # %% base import
-import matplotlib.pyplot as plt
 import numpy as np
-import nibabel as nib
 from QMR.smooth.gaussian_blur import gaussian_blur
 import pydicom
 import time
+import datetime
+import json
 import requests
 from flask import request, Blueprint, send_file, jsonify
 import os
-from io import BytesIO
-from User_DB import user, verify_token
+from middleware import token_required
+from CRUD import _upload_orthanc, _new_study_pair, _new_series_pair, _new_instance_pair
+from db_models import (
+    db,
+    Account,
+    Group,
+    Acc_Group,
+    Dataset_Group,
+    Dataset,
+    Patient,
+    Dataset_Patients,
+    Dataset_Studies,
+    Dataset_Series,
+    Dataset_Instances,
+)
+from sqlalchemy import update, text, func, and_, or_
 
 
 # %% MPFSL
@@ -81,6 +95,10 @@ def QMR_main(realctr, ictr, tsl):
     max_val = np.max(mpf_result)
     window_width = max_val - min_val
     window_level = (max_val + min_val) / 2
+
+    now = datetime.datetime.now()
+    formatted_time = now.strftime("%Y%m%d%H%M")
+    ds.ProtocolName = "MPF" + formatted_time
 
     ds.WindowWidth = window_width
     ds.WindowCenter = window_level
@@ -180,11 +198,13 @@ def generate_uid(uid, fileNum, index, image_type):
 
 
 @mpf.route("/mpf", methods=["POST"])
-# @verify_token()
+@token_required()
+
 def rmpfsl_cal():
     realctr = []
     ictr = []
     tsl = float(request.args.get("tsl"))
+    Dataset_ID = request.args.get("dataset_id")
 
     if len(request.json["files"]) == 0:
         return "No files uploaded."
@@ -225,6 +245,45 @@ def rmpfsl_cal():
     SOPInstanceUID = result.SOPInstanceUID
     output_dicom_path = os.path.join(UPLOAD_FOLDER, SOPInstanceUID)
     result.save_as(output_dicom_path)
+
+
+    with open(output_dicom_path, "rb") as f:
+        file = f.read()
+    upload_url = f"{orthanc_url}/instances"
+    response = requests.post(
+        upload_url, data=file, headers={"Content-Type": "application/dicom"}
+    )
+    orthanc_data = json.loads(response.content)
+
+    study_pair = Dataset_Studies.query.filter(
+        and_(
+            Dataset_Studies.patient_orthanc_id == orthanc_data["ParentPatient"],
+            Dataset_Studies.study_orthanc_id == orthanc_data["ParentStudy"],
+            Dataset_Studies.dataset_id == Dataset_ID,
+        )
+    ).first()
+    if study_pair is None:
+        _new_study_pair(orthanc_data, Dataset_ID)
+
+    series_pair = Dataset_Series.query.filter(
+        and_(
+            Dataset_Series.patient_orthanc_id == orthanc_data["ParentPatient"],
+            Dataset_Series.study_orthanc_id == orthanc_data["ParentStudy"],
+            Dataset_Series.series_orthanc_id == orthanc_data["ParentSeries"],
+            Dataset_Series.dataset_id == Dataset_ID,
+        )
+    ).first()
+    if series_pair is None:
+        _new_series_pair(orthanc_data, Dataset_ID)
+
+    instance_pair = Dataset_Instances.query.filter(
+        and_(
+            Dataset_Instances.series_orthanc_id == orthanc_data["ParentSeries"],
+            Dataset_Instances.instance_orthanc_id == orthanc_data["ID"]
+        )
+    ).first()
+    if instance_pair is None:
+        _new_instance_pair(orthanc_data)
 
     return send_file(output_dicom_path, mimetype="application/dicom")
 

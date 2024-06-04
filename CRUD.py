@@ -12,7 +12,6 @@ import sqlite3
 from middleware import token_required, permission_check
 import json
 import shortuuid
-import config
 from flask import g
 from flask_cors import CORS
 from db_models import (
@@ -39,8 +38,6 @@ orthanc_url = "http://127.0.0.1:8042"
 
 
 # ------------------------------------------ Notification --------------------------------------
-
-
 @crud.route("/get_notifications", methods=["GET"])
 @token_required()
 def get_notifications():
@@ -212,8 +209,6 @@ def read_message():
 
 
 # ------------------------------------------ Dataset --------------------------------------
-
-
 @crud.route(
     "/create_dataset", methods=["POST"]
 )  # will simultaneously create a default group for this dataset
@@ -1144,8 +1139,10 @@ def upload():
 
 def _upload_orthanc(file):
     upload_url = f"{orthanc_url}/instances"  # Orthanc的URL
-    if file.filename == "":
+    if (file.filename):
+        if file.filename == "" :
             return "Empty filename."
+        return "No filename"
     file_data = file.read()
     response = requests.post(
         upload_url, data=file_data, headers={"Content-Type": "application/dicom"}

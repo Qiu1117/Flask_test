@@ -10,9 +10,6 @@ from db_models import Account, Group, Acc_Group, Dataset_Group
 from CRUD import get_account_info
 
 
-# from middleware import token_required
-
-
 user = Blueprint("user", __name__)
 
 
@@ -46,7 +43,6 @@ def register():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# 用户登录接口
 @user.route("/login", methods=["POST"])
 def login():
     """
