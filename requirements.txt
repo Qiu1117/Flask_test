@@ -1,15 +1,11 @@
-alabaster @ file:///home/ktietz/src/ci/alabaster_1611921544520/work
 alembic==1.13.1
 aliyun-python-sdk-core==2.14.0
 aliyun-python-sdk-kms==2.16.2
 anaconda-client==1.11.2
 anaconda-navigator==2.4.0
-anaconda-project @ file:///C:/Windows/TEMP/abs_91fu4tfkih/croots/recipe/anaconda-project_1660339890874/work
-anyio @ file:///C:/ci/anyio_1644481856696/work/dist
 appdirs==1.4.4
 argon2-cffi @ file:///opt/conda/conda-bld/argon2-cffi_1645000214183/work
 argon2-cffi-bindings @ file:///C:/ci/argon2-cffi-bindings_1644569876605/work
-arrow @ file:///C:/b/abs_cal7u12ktb/croot/arrow_1676588147908/work
 astroid @ file:///C:/b/abs_d4lg3_taxn/croot/astroid_1676904351456/work
 astropy @ file:///C:/ci/astropy_1657719642921/work
 asttokens @ file:///opt/conda/conda-bld/asttokens_1646925590279/work
