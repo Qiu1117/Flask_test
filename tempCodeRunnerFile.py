@@ -1,1 +1,1 @@
-study_orthanc_id
+orthanc_data
