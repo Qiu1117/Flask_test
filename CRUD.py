@@ -1503,23 +1503,70 @@ def deletefiles():
             i.status = 1
         db.session.commit()
 
-    # fileClass_list = file_data["file_Class"]
-    # fileID_list = file_data["file_ID"]
-    
-    # delete_dict = {
-    #     "Patient": "patients",
-    #     "Series": "series",
-    #     "Study": "studies",
-    #     "Instances": "instances",
-    # }
-    
-    # for i in range(len(fileID_list)):
-    #     fileID = fileID_list[i]
-    #     fileClass = delete_dict[fileClass_list[i]]
-    #     deleteUrl = f"{orthanc_url}/{fileClass}/{fileID}"
-
-    #     delete_response = requests.delete(deleteUrl)
-    #     if delete_response.status_code != 200:
-    #         return jsonify("Fail to delete selected files!")
-
     return jsonify("Success delete selected files!")
+
+
+@crud.route("/get_maintag_info", methods=["GET"])
+def get_maintag_info():
+
+    Orthanc_id = request.args["id"]
+    info_class = request.args["class"]
+    
+    if info_class == "Study":
+        result_dict =  _get_study_taginfo(Orthanc_id)
+    elif info_class == "Series":
+        result_dict =  _get_series_taginfo(Orthanc_id)
+    elif info_class == "Instances":
+        result_dict =  _get_instance_taginfo(Orthanc_id)
+    else:
+        abort(400, description="Invalid 'class' parameter")
+
+    if result_dict is None:
+        abort(404, description=f"No data found for {info_class} with ID {Orthanc_id}")
+
+
+    return result_dict
+
+
+def _get_study_taginfo(study_orthanc_id):
+    Study_url = f"{orthanc_url}/studies/{study_orthanc_id}?=full"
+
+    response = requests.get(Study_url)
+
+    if response.status_code == 200:
+
+        studies_info = response.json()
+        main_dicom_tags = studies_info.get("MainDicomTags", {})
+
+    else:
+        return None
+
+    return main_dicom_tags
+
+
+def _get_series_taginfo(series_orthanc_id):
+
+    serie_url = f"{orthanc_url}/series/{series_orthanc_id}?=full"
+    series_response = requests.get(serie_url)
+    if series_response.status_code == 200:
+        series_info = series_response.json()
+        main_dicom_tags = series_info.get("MainDicomTags", {})
+
+    else:
+        return None
+
+    return main_dicom_tags
+
+
+def _get_instance_taginfo(instance_orthanc_id):
+
+    instance_url = f"{orthanc_url}/instances/{instance_orthanc_id}?=full"
+    instance_response = requests.get(instance_url)
+    if instance_response.status_code == 200:
+        instance_info = instance_response.json()
+        main_dicom_tags = instance_info.get("MainDicomTags", {})
+
+    else:
+        return None
+
+    return main_dicom_tags

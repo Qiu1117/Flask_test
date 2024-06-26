@@ -36,17 +36,6 @@ orthanc_url = "http://127.0.0.1:8042"
 
 # ---------------------------------------数据管理--------------------------
 
-@app.route("/get_Instance", methods=["GET"])
-# @verify_token()
-def get_Instance():
-    Instances_url = f"{orthanc_url}/instances"
-    Instances_id = request.args.get("instance_ID")
-    Instance_url = f"{Instances_url}/{Instances_id}"
-    download_url = f"{Instance_url}/file"
-    response = requests.get(download_url)
-
-    return response.content
-
 
 @app.route("/proxy/<path:url_path>", methods=["GET"])
 # @verify_token()
