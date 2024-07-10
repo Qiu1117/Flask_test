@@ -66,8 +66,12 @@ class MPFSL:
     def load_dict(self):
         mat_dic = io.loadmat(self.dict_path)
         self.var_MPF = mat_dic["var_MPF"][0]
-        self.jtmt = mat_dic["jtmt"]
-        self.inhom_b1 = mat_dic["inhom_b1"][0]
+        if 'jtmt' in mat_dic:
+            self.jtmt = mat_dic['jtmt']
+            self.inhom_b1 = mat_dic['inhom_b1'][0]
+        elif 'all_jtmt' in mat_dic:
+            self.jtmt = mat_dic['all_jtmt']
+            self.inhom_b1 = mat_dic['all_inhom_b1'][0]
 
     def cal_rmpfsl(self, dyn1, dyn2, dyn3, dyn4, tsl=-0.050):
         nonzero_divide = np.divide(

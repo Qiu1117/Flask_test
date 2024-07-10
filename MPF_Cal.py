@@ -2,11 +2,12 @@
 import numpy as np
 from QMR.smooth.gaussian_blur import gaussian_blur
 import pydicom
+import io
 import time
-import datetime
 import json
 import requests
-from flask import request, Blueprint, send_file, jsonify
+import uuid
+from flask import request, Blueprint, send_file, jsonify, make_response, abort
 import os
 from middleware import token_required
 from CRUD import _upload_orthanc, _new_study_pair, _new_series_pair, _new_instance_pair
@@ -24,12 +25,9 @@ from db_models import (
     Dataset_Instances,
 )
 from sqlalchemy import update, text, func, and_, or_
-
-
-# %% MPFSL
 from QMR.MPFSL import MPFSL
 
-colorbar = None
+
 mpf = Blueprint("mpf", __name__)
 
 UPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads"
@@ -37,20 +35,8 @@ MPFUPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads\mpf"
 orthanc_url = "http://127.0.0.1:8042"
 
 
-def QMR_main(realctr, ictr, tsl):
-    global colorbar
-    dict_path = "QMR/MPFSL/proc_dict4MPF_liver.mat"
-    B1_path = "samples/0005_B1 map/I0110.dcm"
+def QMR_Cal(realctr, ictr, tsl, B1_path, dict_path):
 
-    # dyn_real1 = "samples/0005_dyn_dicom/I0050.dcm"
-    # dyn_real2 = "samples/0005_dyn_dicom/I0060.dcm"
-    # dyn_real3 = "samples/0005_dyn_dicom/I0070.dcm"
-    # dyn_real4 = "samples/0005_dyn_dicom/I0080.dcm"
-
-    # dyn_img1 = "samples/0005_dyn_dicom/I0090.dcm"
-    # dyn_img2 = "samples/0005_dyn_dicom/I0100.dcm"
-    # dyn_img3 = "samples/0005_dyn_dicom/I0110.dcm"
-    # dyn_img4 = "samples/0005_dyn_dicom/I0120.dcm"
     dyn_real1 = realctr[0]
     dyn_real2 = realctr[2]
     dyn_real3 = realctr[1]
@@ -74,31 +60,27 @@ def QMR_main(realctr, ictr, tsl):
         B1_path,
         tsl,
     )
+
     mpf = mpfsl.cal_mpf()
-    mpf_result = (mpf * 100).astype(np.uint16)
+    mpf_result = (mpf * 1000).astype(np.uint16)
 
-    # image_path = r"C:\Users\Qiuyi\Desktop\uploads\mpf\Mpf_output.jpg"
-    # plt.imshow(mpf, cmap="jet")
-    # if colorbar is None:
-    #     colorbar = plt.colorbar()
-    # else:
-    #     plt.colorbar(cax=colorbar.ax)
-    # plt.savefig(image_path, format="jpeg", dpi=300, bbox_inches="tight")
+    rmpf = mpfsl.rmpfsl
+    rmpf_result = (rmpf * 1000).astype(np.uint16)
 
-    ds = pydicom.dcmread(dyn_real1)
-    ds.PixelData = mpf_result.tobytes()
-    rows, columns = mpf_result.shape
+    return rmpf_result, mpf_result
+
+
+def save2dcm(template_dcm, pixel_data):
+    ds = pydicom.dcmread(template_dcm)
+    ds.PixelData = pixel_data.tobytes()
+    rows, columns = pixel_data.shape
     ds.Rows = rows
     ds.Columns = columns
 
-    min_val = np.min(mpf_result)
-    max_val = np.max(mpf_result)
+    min_val = np.min(pixel_data)
+    max_val = np.max(pixel_data)
     window_width = max_val - min_val
     window_level = (max_val + min_val) / 2
-
-    now = datetime.datetime.now()
-    formatted_time = now.strftime("%Y%m%d%H%M")
-    ds.ProtocolName = "MPF" + formatted_time
 
     ds.WindowWidth = window_width
     ds.WindowCenter = window_level
@@ -115,7 +97,6 @@ def QMR_main(realctr, ictr, tsl):
     study_uid = ds[0x20, 0x0D].value
     imageType = ds[0x08, 0x08].value
 
-    # test_uid = "1.2.826.0.1.3680043.10.1338"
     fileNum = 1
     index = 1
     new_uid = generate_uid(instance_uid, fileNum, index, imageType)
@@ -126,10 +107,7 @@ def QMR_main(realctr, ictr, tsl):
 
     new_uid = generate_uid(study_uid, fileNum, index, imageType)
     ds[0x20, 0x0D].value = new_uid
-
-    # output_dicom_path = r"C:\Users\Qiuyi\Desktop\uploads\mpf\Mpf_output.dcm"
-    # ds.save_as(output_dicom_path)
-
+    
     return ds
 
 
@@ -197,55 +175,14 @@ def generate_uid(uid, fileNum, index, image_type):
     return new_uid
 
 
-@mpf.route("/mpf", methods=["POST"])
-@token_required()
-
-def rmpfsl_cal():
-    realctr = []
-    ictr = []
-    tsl = float(request.args.get("tsl"))
-    Dataset_ID = request.args.get("dataset_id")
-
-    if len(request.json["files"]) == 0:
-        return "No files uploaded."
-
-    file_list = request.json["files"]
-    for i in range(0, len(file_list), 2):
-        item1 = file_list[i]
-        item2 = file_list[i + 1] if i + 1 < len(file_list) else None
-
-        instance_name1, instance_id1 = next(iter(item1.items()))
-        Instance_url1 = f"{orthanc_url}/instances/{instance_id1['id']}/file"
-        response1 = requests.get(Instance_url1)
-        file_path1 = os.path.join(UPLOAD_FOLDER, instance_name1)
-        with open(file_path1, "wb") as file1:
-            file1.write(response1.content)
-        ds1 = pydicom.dcmread(file_path1)
-        if ds1.ImageType[3] in ["R", "r"]:
-            realctr.append(file_path1)
-        elif ds1.ImageType[3] in ["I", "i"]:
-            ictr.append(file_path1)
-
-        instance_name2, instance_id2 = next(iter(item2.items()))
-        Instance_url2 = f"{orthanc_url}/instances/{instance_id2['id']}/file"
-        response2 = requests.get(Instance_url2)
-        file_path2 = os.path.join(UPLOAD_FOLDER, instance_name2)
-        with open(file_path2, "wb") as file2:
-            file2.write(response2.content)
-        ds2 = pydicom.dcmread(file_path2)
-        if ds2.ImageType[3] in ["R", "r"]:
-            realctr.append(file_path2)
-        elif ds2.ImageType[3] in ["I", "i"]:
-            ictr.append(file_path2)
-
-        if len(realctr) != len(ictr):
-            return jsonify({"message": "Real and imaginary data do not match"}), 500
-
-    result = QMR_main(realctr, ictr, tsl)
-    SOPInstanceUID = result.SOPInstanceUID
-    output_dicom_path = os.path.join(UPLOAD_FOLDER, SOPInstanceUID)
+def process_and_upload_file(
+    realctr, data, file_prefix, UPLOAD_FOLDER, orthanc_url, Dataset_ID
+):
+    result = save2dcm(realctr[0], data)
+    new_uuid = str(uuid.uuid4())
+    filename = f"{file_prefix}_{new_uuid}.dcm"
+    output_dicom_path = os.path.join(UPLOAD_FOLDER, filename)
     result.save_as(output_dicom_path)
-
 
     with open(output_dicom_path, "rb") as f:
         file = f.read()
@@ -279,33 +216,107 @@ def rmpfsl_cal():
     instance_pair = Dataset_Instances.query.filter(
         and_(
             Dataset_Instances.series_orthanc_id == orthanc_data["ParentSeries"],
-            Dataset_Instances.instance_orthanc_id == orthanc_data["ID"]
+            Dataset_Instances.instance_orthanc_id == orthanc_data["ID"],
         )
     ).first()
     if instance_pair is None:
         _new_instance_pair(orthanc_data)
 
-    return send_file(output_dicom_path, mimetype="application/dicom")
+    return output_dicom_path, orthanc_data["ID"]
 
 
-# %% T1rho
-# from QMR.t1rho import ab_fitting
+@mpf.route("/mpf", methods=["POST"])
+@token_required()
+def rmpfsl_cal():
 
-# image_list = [
-#     "samples/t1rho_test/dicom/I0010.dcm",
-#     "samples/t1rho_test/dicom/I0020.dcm",
-#     "samples/t1rho_test/dicom/I0030.dcm",
-#     "samples/t1rho_test/dicom/I0040.dcm",
-# ]
-# tsl = [0, 0.01, 0.03, 0.05]
+    realctr = []
+    ictr = []
+    tsl = float(request.form.get("Tsl"))
+    Dataset_ID = request.form.get("Dataset_ID")
+
+    b1_map_file = request.files.get('B1_map')
+    b1_path = os.path.join(UPLOAD_FOLDER, b1_map_file.filename)
+    b1_map_file.save(b1_path)
+
+    dictionary_file = request.files.get('Dictionary')
+    dic_path = os.path.join(UPLOAD_FOLDER, dictionary_file.filename)
+    dictionary_file.save(dic_path)
+
+    file_list = request.form.get("Fileid_List").split(",")
+    if len(file_list) == 0:
+        return "No files uploaded."
+
+    for i in range(0, len(file_list), 2):
+        item1 = file_list[i]
+        item2 = file_list[i + 1] if i + 1 < len(file_list) else None
+
+        if item1:
+            Instance_url1 = f"{orthanc_url}/instances/{item1}/file"
+            response1 = requests.get(Instance_url1)
+            file_path1 = os.path.join(UPLOAD_FOLDER, f"instance_{item1}.dcm")
+            with open(file_path1, "wb") as file1:
+                file1.write(response1.content)
+            ds1 = pydicom.dcmread(file_path1)
+            if ds1.ImageType[3].upper() == "R":
+                realctr.append(file_path1)
+            elif ds1.ImageType[3].upper() == "I":
+                ictr.append(file_path1)
+
+        if item2:
+            Instance_url2 = f"{orthanc_url}/instances/{item2}/file"
+            response2 = requests.get(Instance_url2)
+            file_path2 = os.path.join(UPLOAD_FOLDER, f"instance_{item2}.dcm")
+            with open(file_path2, "wb") as file2:
+                file2.write(response2.content)
+            ds2 = pydicom.dcmread(file_path2)
+            if ds2.ImageType[3].upper() == "R":
+                realctr.append(file_path2)
+            elif ds2.ImageType[3].upper() == "I":
+                ictr.append(file_path2)
+
+        if len(realctr) != len(ictr):
+            return jsonify({"message": "Real and imaginary data do not match"}), 500
+
+    rmpf, mpf = QMR_Cal(realctr, ictr, tsl, b1_path, dic_path)
+
+    rmpf_dicom_path, rmpf_orthanc_id = process_and_upload_file(
+        realctr, rmpf, "Rmpfsl", UPLOAD_FOLDER, orthanc_url, Dataset_ID
+    )
+
+    mpf_dicom_path, mpf_orthanc_id = process_and_upload_file(
+        realctr, mpf, "MPF", UPLOAD_FOLDER, orthanc_url, Dataset_ID
+    )
+
+    response = make_response(send_file(mpf_dicom_path, mimetype="application/dicom"))
+    response.headers["X-RMPF-Orthanc-ID"] = rmpf_orthanc_id
+    response.headers["X-MPF-Orthanc-ID"] = mpf_orthanc_id
+    response.headers["Access-Control-Expose-Headers"] = "*"
+
+    return response
 
 
-# t1rho = ab_fitting(tsl, image_list)
-# res = t1rho.fit()
+@mpf.route("/get_QMR_file", methods=["GET"])
+@token_required()
+def retrieve_QMR_file():
+    Orthanc_Id = request.args.get("Orthanc_Id")
 
-# plt.figure(1)
-# plt.imshow(res, vmin=0.02, vmax=0.06, cmap="jet")
-# plt.colorbar()
-# plt.title("T1rho(ab_fitting)")
-# plt.show()
-# # %%
+    if (Orthanc_Id):
+        dicom_url = f"{orthanc_url}/instances/{Orthanc_Id}/file"
+        response = requests.get(dicom_url)
+
+        if response.status_code != 200:
+            abort(response.status_code, description="Failed to retrieve DICOM from Orthanc")
+        file_name = f"{Orthanc_Id}.dcm"
+        file_path = os.path.join(UPLOAD_FOLDER, file_name)
+
+        with open(file_path, "wb") as file:
+            file.write(response.content)
+        response = make_response(send_file(file_path, mimetype="application/dicom"))
+
+        return send_file(file_path, mimetype="application/dicom")
+
+    else:
+        return (
+            jsonify({"status": "error", "message": "The file was not found!"}),
+            500,
+        )
