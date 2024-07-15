@@ -10,6 +10,7 @@ import uuid
 from flask import request, Blueprint, send_file, jsonify, make_response, abort
 import os
 from middleware import token_required
+from datetime import datetime
 from CRUD import _upload_orthanc, _new_study_pair, _new_series_pair, _new_instance_pair
 from db_models import (
     db,
@@ -65,12 +66,13 @@ def QMR_Cal(realctr, ictr, tsl, B1_path, dict_path):
     mpf_result = (mpf * 1000).astype(np.uint16)
 
     rmpf = mpfsl.rmpfsl
-    rmpf_result = (rmpf * 1000).astype(np.uint16)
+    rmpf = np.clip(rmpf, np.min(rmpf), 4, out=None)
+    rmpf_result = (rmpf * 100).astype(np.uint16)
 
     return rmpf_result, mpf_result
 
 
-def save2dcm(template_dcm, pixel_data):
+def save2dcm(template_dcm, pixel_data,file_prefix, formatted_date, new_study_uid):
     ds = pydicom.dcmread(template_dcm)
     ds.PixelData = pixel_data.tobytes()
     rows, columns = pixel_data.shape
@@ -81,6 +83,18 @@ def save2dcm(template_dcm, pixel_data):
     max_val = np.max(pixel_data)
     window_width = max_val - min_val
     window_level = (max_val + min_val) / 2
+
+    original_study_description = ds.StudyDescription
+    ds.StudyDescription = f"{original_study_description}_Processed_{formatted_date}"
+
+    original_series_description = (
+        ds[0x0008, 0x103E].value if (0x0008, 0x103E) in ds else "Unknown Series"
+    )
+    ds[0x0008, 0x103E].value = f"{original_series_description}_{file_prefix}_{formatted_date}"
+
+    ds[0x0018, 0x1030].value = (
+        f"{file_prefix}_Result_{formatted_date}"
+    )
 
     ds.WindowWidth = window_width
     ds.WindowCenter = window_level
@@ -105,9 +119,9 @@ def save2dcm(template_dcm, pixel_data):
     new_uid = generate_uid(series_uid, fileNum, index, imageType)
     ds[0x20, 0x0E].value = new_uid
 
-    new_uid = generate_uid(study_uid, fileNum, index, imageType)
-    ds[0x20, 0x0D].value = new_uid
-    
+    # new_uid = generate_uid(study_uid, fileNum, index, imageType)
+    ds[0x20, 0x0D].value = new_study_uid
+
     return ds
 
 
@@ -176,9 +190,12 @@ def generate_uid(uid, fileNum, index, image_type):
 
 
 def process_and_upload_file(
-    realctr, data, file_prefix, UPLOAD_FOLDER, orthanc_url, Dataset_ID
+    realctr, data, file_prefix, UPLOAD_FOLDER, orthanc_url, Dataset_ID, new_study_uid
 ):
-    result = save2dcm(realctr[0], data)
+    current_date = datetime.now()
+    formatted_date = current_date.strftime("%Y%m%d%H%M")
+
+    result = save2dcm(realctr[0], data, file_prefix, formatted_date, new_study_uid)
     new_uuid = str(uuid.uuid4())
     filename = f"{file_prefix}_{new_uuid}.dcm"
     output_dicom_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -227,7 +244,7 @@ def process_and_upload_file(
 
 @mpf.route("/mpf", methods=["POST"])
 @token_required()
-def rmpfsl_cal():
+def MPF_cal():
 
     realctr = []
     ictr = []
@@ -279,12 +296,18 @@ def rmpfsl_cal():
 
     rmpf, mpf = QMR_Cal(realctr, ictr, tsl, b1_path, dic_path)
 
+    original_ds = pydicom.dcmread(realctr[0])
+    original_study_uid = original_ds.StudyInstanceUID
+    imageType = original_ds[0x08, 0x08].value
+
+    new_study_uid = generate_uid(original_study_uid, 1, 1, imageType)
+
     rmpf_dicom_path, rmpf_orthanc_id = process_and_upload_file(
-        realctr, rmpf, "Rmpfsl", UPLOAD_FOLDER, orthanc_url, Dataset_ID
+        realctr, rmpf, "Rmpfsl", UPLOAD_FOLDER, orthanc_url, Dataset_ID, new_study_uid
     )
 
     mpf_dicom_path, mpf_orthanc_id = process_and_upload_file(
-        realctr, mpf, "MPF", UPLOAD_FOLDER, orthanc_url, Dataset_ID
+        realctr, mpf, "MPF", UPLOAD_FOLDER, orthanc_url, Dataset_ID, new_study_uid
     )
 
     response = make_response(send_file(mpf_dicom_path, mimetype="application/dicom"))
