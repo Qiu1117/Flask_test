@@ -8,6 +8,7 @@ from MPF_Cal import mpf
 from User_DB import user, verify_token
 from flask import current_app
 from CRUD import crud
+from Retrieve import retrieve
 from db_models import db
 from config import ProductionConfig
 from flask_migrate import Migrate
@@ -56,6 +57,9 @@ app.register_blueprint(user)
 
 # ---------------------------------------mpf--------------------------------
 app.register_blueprint(mpf)
+
+# ---------------------------------------retrieve--------------------------------
+app.register_blueprint(retrieve)
 
 
 if __name__ == "__main__":
