@@ -9,6 +9,7 @@ from User_DB import user, verify_token
 from flask import current_app
 from CRUD import crud
 from Retrieve import retrieve
+from Dashboard import dashboard
 from db_models import db
 from config import ProductionConfig
 from flask_migrate import Migrate
@@ -60,6 +61,9 @@ app.register_blueprint(mpf)
 
 # ---------------------------------------retrieve--------------------------------
 app.register_blueprint(retrieve)
+
+# ---------------------------------------dashboard--------------------------------
+app.register_blueprint(dashboard)
 
 
 if __name__ == "__main__":
