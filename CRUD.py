@@ -24,7 +24,9 @@ from db_models import (
     Dataset,
     Patient,
     Dataset_Patients,
+    Study,
     Dataset_Studies,
+    Series,
     Dataset_Series,
     Dataset_Instances,
 )
@@ -1077,8 +1079,6 @@ def upload():
     Dataset_Data = json.loads(form_data.get("dataset_data"))
 
     Dataset_ID = Dataset_Data["dataset_id"]
-    # Dataset_Infos = Dataset_Data["dataset_info"]
-    # print(Dataset_ID)
 
     dataset = Dataset.query.filter_by(id=Dataset_ID).first()
     if dataset is None:
@@ -1170,23 +1170,21 @@ def _upload_orthanc(file):
 def _new_patient_pair(orthanc_data, Dataset_ID):
     patient_orthanc_ID = orthanc_data["ParentPatient"]
 
-    patient_tags_url = f"{orthanc_url}/patients/{patient_orthanc_ID}?=short"
+    patient_tags_url = f"{orthanc_url}/patients/{patient_orthanc_ID}/shared-tags?simplify"
     response = requests.get(patient_tags_url)
-    patient_info = json.loads(response.content)
+    # patient_info = json.loads(response.content)
+    shared_tags = response.json()
 
     patient = Patient.query.filter_by(patient_orthanc_id=patient_orthanc_ID).first()
     if patient is None:
-        main_dicom_tags = patient_info.get("MainDicomTags", {})
+        # main_dicom_tags = patient_info.get("MainDicomTags", {})
         new_patient = Patient(
-            patient_orthanc_id=patient_orthanc_ID,
-            # patient_id=patient_tags["MainDicomTags"]["PatientID"],
-            # patient_name=patient_tags["MainDicomTags"]["PatientName"],
-            # patient_sex=patient_tags["MainDicomTags"]["PatientSex"],
-            # patient_birthdate=patient_tags["MainDicomTags"]["PatientBirthDate"],
-            patient_id=main_dicom_tags.get("PatientID", ""),
-            patient_name=main_dicom_tags.get("PatientName", ""),
-            patient_sex=main_dicom_tags.get("PatientSex", ""),
-            patient_birthdate=main_dicom_tags.get("PatientBirthDate", ""),
+            patient_orthanc_id = patient_orthanc_ID,
+            patient_id = shared_tags.get("PatientID", ""),
+            patient_name = shared_tags.get("PatientName", ""),
+            patient_sex = shared_tags.get("PatientSex", ""),
+            patient_birthdate = shared_tags.get("PatientBirthDate", ""),
+            patient_weight = shared_tags.get("PatientWeight", ""),
         )
         db.session.add(new_patient)
         db.session.commit()
@@ -1204,7 +1202,7 @@ def _new_patient_pair(orthanc_data, Dataset_ID):
 def _new_study_pair(orthanc_data, Dataset_ID):
     patient_orthanc_ID = orthanc_data["ParentPatient"]
     study_orthanc_ID = orthanc_data["ParentStudy"]
-    
+
     patient_pair = Dataset_Patients.query.filter(
         and_(
             Dataset_Patients.patient_orthanc_id == orthanc_data["ParentPatient"],
@@ -1213,6 +1211,13 @@ def _new_study_pair(orthanc_data, Dataset_ID):
     ).first()
     if patient_pair is None:
         abort(404, description="Dataset and patient not match")
+
+    study = Study.query.filter_by(study_orthanc_id=orthanc_data["ParentStudy"]).first()
+    if study is None:
+        _new_study(orthanc_data)
+    else:
+        study.valid = True
+        db.session.commit()
 
     new_study_pair = Dataset_Studies(
         D_P_pair_id = patient_pair.D_P_pair_id,
@@ -1224,6 +1229,33 @@ def _new_study_pair(orthanc_data, Dataset_ID):
     db.session.commit()
 
     return
+
+
+def _new_study(orthanc_data):
+    study_orthanc_id = orthanc_data["ParentStudy"]
+
+    study_tags_url = f"{orthanc_url}/studies/{study_orthanc_id}"
+    response = requests.get(study_tags_url)
+    study_info = json.loads(response.content)
+
+    main_dicom_tags = study_info.get("MainDicomTags", {})
+    new_study = Study(
+        study_orthanc_id=study_orthanc_id,
+        study_instance_uid=main_dicom_tags.get("StudyInstanceUID", ""),
+        study_date=main_dicom_tags.get("StudyDate", ""),
+        study_time=main_dicom_tags.get("StudyTime", ""),
+        study_id=main_dicom_tags.get("StudyID", ""),
+        study_description=main_dicom_tags.get("StudyDescription", ""),
+        accession_number=main_dicom_tags.get("AccessionNumber", ""),
+        requested_procedure_description=main_dicom_tags.get(
+            "RequestedProcedureDescription", ""
+        ),
+        institution_name=main_dicom_tags.get("InstitutionName", ""),
+        requesting_physician=main_dicom_tags.get("RequestingPhysician", ""),
+        referring_physician_name=main_dicom_tags.get("ReferringPhysicianName", ""),
+    )
+    db.session.add(new_study)
+    db.session.commit()
 
 
 def _new_series_pair(orthanc_data, Dataset_ID):
@@ -1241,6 +1273,14 @@ def _new_series_pair(orthanc_data, Dataset_ID):
     if study_pair is None:
         abort(404, description="Dataset-patient and study do not match")
 
+    series = Series.query.filter_by(series_orthanc_id=orthanc_data["ParentSeries"]).first()
+    if series is None:
+        print("none series")
+        _new_series(orthanc_data)
+    else:
+        series.valid = True
+        db.session.commit()
+
     new_series_pair = Dataset_Series(
         DP_S_pair_id = study_pair.DP_S_pair_id,
         patient_orthanc_id=patient_orthanc_ID,
@@ -1252,6 +1292,56 @@ def _new_series_pair(orthanc_data, Dataset_ID):
     db.session.commit()
 
     return
+
+
+def _new_series(orthanc_data):
+    series_orthanc_id = orthanc_data["ParentSeries"]
+
+    series_tags_url = f"{orthanc_url}/series/{series_orthanc_id}"
+    response = requests.get(series_tags_url)
+    series_info = json.loads(response.content)
+
+    main_dicom_tags = series_info.get("MainDicomTags", {})
+    def safe_int(value):
+        try:
+            return int(value) if value else None
+        except ValueError:
+            return None
+
+    new_series = Series(
+        series_orthanc_id=series_orthanc_id,
+        series_instance_uid=main_dicom_tags.get("SeriesInstanceUID", ""),
+        series_date=main_dicom_tags.get("SeriesDate", ""),
+        series_time=main_dicom_tags.get("SeriesTime", ""),
+        modality=main_dicom_tags.get("Modality", ""),
+        manufacturer=main_dicom_tags.get("Manufacturer", ""),
+        station_name=main_dicom_tags.get("StationName", ""),
+        series_description=main_dicom_tags.get("SeriesDescription", ""),
+        body_part_examined=main_dicom_tags.get("BodyPartExamined", ""),
+        sequence_name=main_dicom_tags.get("SequenceName", ""),
+        protocol_name=main_dicom_tags.get("ProtocolName", ""),
+        series_number=safe_int(main_dicom_tags.get("SeriesNumber")),
+        cardiac_number_of_images=safe_int(main_dicom_tags.get("CardiacNumberOfImages")),
+        images_in_acquisition=safe_int(main_dicom_tags.get("ImagesInAcquisition")),
+        number_of_temporal_positions=safe_int(
+            main_dicom_tags.get("NumberOfTemporalPositions")
+        ),
+        number_of_slices=safe_int(main_dicom_tags.get("NumberOfSlices")),
+        number_of_time_slices=safe_int(main_dicom_tags.get("NumberOfTimeSlices")),
+        image_orientation_patient=main_dicom_tags.get("ImageOrientationPatient", ""),
+        series_type=main_dicom_tags.get("SeriesType", ""),
+        operators_name=main_dicom_tags.get("OperatorsName", ""),
+        performed_procedure_step_description=main_dicom_tags.get(
+            "PerformedProcedureStepDescription", ""
+        ),
+        acquisition_device_processing_description=main_dicom_tags.get(
+            "AcquisitionDeviceProcessingDescription", ""
+        ),
+        contrast_bolus_agent=main_dicom_tags.get("ContrastBolusAgent", ""),
+    )
+    db.session.add(new_series)
+    db.session.commit()
+    print(f"Successfully added series with ID: {new_series.series_orthanc_id}")
 
 
 def _new_instance_pair(orthanc_data):

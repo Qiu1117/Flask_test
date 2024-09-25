@@ -86,13 +86,14 @@ class Dataset(Base):
 
 class Patient(Base):
     __tablename__ = "Patient"
-    
+
     patient_orthanc_id = db.Column(String(64), primary_key=True)  
-    
+
     patient_id = db.Column(String(30))
     patient_name = db.Column(String(50))
     patient_sex = db.Column(String(10))
     patient_birthdate = db.Column(String(10))
+    patient_weight = db.Column(Integer)
 
     valid = db.Column(Boolean, default=True)
 
@@ -109,6 +110,25 @@ class Dataset_Patients(Base):
     __table_args__ = (UniqueConstraint(dataset_id, patient_orthanc_id),)
 
 
+class Study(Base):
+    __tablename__ = "Study"
+
+    study_orthanc_id = db.Column(String(64), primary_key=True)
+
+    study_instance_uid = db.Column(String(64))
+    study_date = db.Column(String(8))  # YYYYMMDD format
+    study_time = db.Column(String(6))  # HHMMSS format
+    study_id = db.Column(String(16))
+    study_description = db.Column(String(64))
+    accession_number = db.Column(String(16))
+    requested_procedure_description = db.Column(String(64))
+    institution_name = db.Column(String(64))
+    requesting_physician = db.Column(String(64))
+    referring_physician_name = db.Column(String(64))
+
+    valid = db.Column(Boolean, default=True)
+
+
 class Dataset_Studies(Base):
     __tablename__ = "Dataset_Studies"
 
@@ -116,12 +136,45 @@ class Dataset_Studies(Base):
     D_P_pair_id = db.Column(Integer, ForeignKey(Dataset_Patients.D_P_pair_id))
     dataset_id = db.Column(Integer, ForeignKey(Dataset.id))
     patient_orthanc_id = db.Column(String(64), ForeignKey(Patient.patient_orthanc_id))
-    study_orthanc_id = db.Column(String(64))
+    study_orthanc_id = db.Column(String(64), ForeignKey(Study.study_orthanc_id))
 
     valid = db.Column(Boolean, default=True)
     __table_args__ = (
         UniqueConstraint(dataset_id, patient_orthanc_id, study_orthanc_id),
     )
+
+
+class Series(Base):
+    __tablename__ = "Series"
+
+    series_orthanc_id = db.Column(String(64), primary_key=True)
+
+    series_instance_uid = db.Column(String(64))
+    series_date = db.Column(String(8))  # YYYYMMDD format
+    series_time = db.Column(String(16))  # HHMMSS format
+    modality = db.Column(String(16))
+    manufacturer = db.Column(String(64))
+    station_name = db.Column(String(64))
+    series_description = db.Column(String(64))
+    body_part_examined = db.Column(String(16))
+    sequence_name = db.Column(String(64))
+    protocol_name = db.Column(String(64))
+    series_number = db.Column(Integer)
+    cardiac_number_of_images = db.Column(Integer)
+    images_in_acquisition = db.Column(Integer)
+    number_of_temporal_positions = db.Column(Integer)
+    number_of_slices = db.Column(Integer)
+    number_of_time_slices = db.Column(Integer)
+    image_orientation_patient = db.Column(
+        String(128)
+    )  
+    series_type = db.Column(String(32))
+    operators_name = db.Column(String(64))
+    performed_procedure_step_description = db.Column(String(128))
+    acquisition_device_processing_description = db.Column(String(128))
+    contrast_bolus_agent = db.Column(String(64))
+
+    valid = db.Column(Boolean, default=True)
 
 
 class Dataset_Series(Base):
@@ -132,8 +185,8 @@ class Dataset_Series(Base):
 
     dataset_id = db.Column(Integer, ForeignKey(Dataset.id))
     patient_orthanc_id = db.Column(String(64), ForeignKey(Patient.patient_orthanc_id))
-    study_orthanc_id = db.Column(String(64))
-    series_orthanc_id = db.Column(String(64))
+    study_orthanc_id = db.Column(String(64), ForeignKey(Study.study_orthanc_id))
+    series_orthanc_id = db.Column(String(64), ForeignKey(Series.series_orthanc_id))
 
     valid = db.Column(Boolean, default=True)
 
