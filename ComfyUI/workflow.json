@@ -1,0 +1,512 @@
+{
+  "last_node_id": 7,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "input.load_dicom",
+      "pos": [
+        60.95134735107422,
+        207.33335876464844
+      ],
+      "size": [
+        315,
+        58
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "DICOM_FILE",
+          "type": "DICOM_FILE",
+          "links": [
+            1
+          ],
+          "slot_index": 0,
+          "localized_name": "DICOM_FILE"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "input.load_dicom"
+      },
+      "widgets_values": [
+        "5635780f-64565673-9b29cf17-d39808a3-29710ad3"
+      ],
+      "pmt_fields": {
+        "type": "input",
+        "plugin_name": null,
+        "function_name": null,
+        "inputs": [],
+        "args": {
+          "oid": "5635780f-64565673-9b29cf17-d39808a3-29710ad3"
+        },
+        "outputs": [
+          {
+            "oid": "5635780f-64565673-9b29cf17-d39808a3-29710ad3",
+            "path": "E:\\Code\\PWH_Volunteer_Analysis\\Sample\\MPF\\MPF.dcm",
+            "value": "E:\\Code\\PWH_Volunteer_Analysis\\Sample\\MPF\\MPF.dcm"
+          }
+        ],
+        "status": "pending"
+      }
+    },
+    {
+      "id": 2,
+      "type": "converter.file_to_data.dicom_to_2d",
+      "pos": [
+        422.8067626953125,
+        249.34979248046875
+      ],
+      "size": [
+        210,
+        26
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "link": 1,
+          "name": "DICOM_FILE",
+          "type": "DICOM_FILE",
+          "localized_name": "DICOM_FILE"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "data",
+          "type": "2D",
+          "links": [
+            2
+          ],
+          "slot_index": 0,
+          "localized_name": "data"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "converter.file_to_data.dicom_to_2d"
+      },
+      "widgets_values": [],
+      "pmt_fields": {
+        "type": "converter",
+        "plugin_name": "file_to_data",
+        "function_name": "dicom_to_2d",
+        "inputs": [
+          {
+            "optional": false
+          }
+        ],
+        "args": {},
+        "outputs": [
+          {
+            "oid": null,
+            "path": null,
+            "value": null
+          }
+        ],
+        "status": "pending"
+      }
+    },
+    {
+      "id": 3,
+      "type": "plugin.smooth.smooth_2d",
+      "pos": [
+        681.537109375,
+        227.4853515625
+      ],
+      "size": [
+        315,
+        78
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "link": 2,
+          "name": "data",
+          "type": "2D",
+          "localized_name": "data"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "data",
+          "type": "2D",
+          "links": [
+            3,
+            4
+          ],
+          "slot_index": 0,
+          "localized_name": "data"
+        },
+        {
+          "name": "test_txt",
+          "type": "STRING",
+          "links": null,
+          "localized_name": "test_txt"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "plugin.smooth.smooth_2d"
+      },
+      "widgets_values": [
+        4
+      ],
+      "pmt_fields": {
+        "type": "plugin",
+        "plugin_name": "smooth",
+        "function_name": "smooth_2d",
+        "inputs": [
+          {
+            "optional": false
+          }
+        ],
+        "args": {
+          "sigma": 4
+        },
+        "outputs": [
+          {
+            "oid": null,
+            "path": null,
+            "value": null
+          },
+          {
+            "oid": null,
+            "path": null,
+            "value": null
+          }
+        ],
+        "status": "pending"
+      }
+    },
+    {
+      "id": 5,
+      "type": "converter.data_to_file.2d_to_dicom",
+      "pos": [
+        1055.71875,
+        305.19781494140625
+      ],
+      "size": [
+        210,
+        26
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "link": 3,
+          "name": "data",
+          "type": "2D",
+          "localized_name": "data"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "DICOM_FILE",
+          "type": "DICOM_FILE",
+          "links": [
+            6
+          ],
+          "slot_index": 0,
+          "localized_name": "DICOM_FILE"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "converter.data_to_file.2d_to_dicom"
+      },
+      "widgets_values": [],
+      "pmt_fields": {
+        "type": "converter",
+        "plugin_name": "data_to_file",
+        "function_name": "2d_to_dicom",
+        "inputs": [
+          {
+            "optional": false
+          }
+        ],
+        "args": {},
+        "outputs": [
+          {
+            "oid": null,
+            "path": null,
+            "value": null
+          }
+        ],
+        "status": "pending"
+      }
+    },
+    {
+      "id": 4,
+      "type": "converter.data_to_file.2d_to_image",
+      "pos": [
+        1128.01904296875,
+        140.12298583984375
+      ],
+      "size": [
+        315,
+        82
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "link": 4,
+          "name": "data",
+          "type": "2D",
+          "localized_name": "data"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE_FILE",
+          "type": "IMAGE_FILE",
+          "links": [
+            5
+          ],
+          "slot_index": 0,
+          "localized_name": "IMAGE_FILE"
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "converter.data_to_file.2d_to_image"
+      },
+      "widgets_values": [
+        "png",
+        true
+      ],
+      "pmt_fields": {
+        "type": "converter",
+        "plugin_name": "data_to_file",
+        "function_name": "2d_to_image",
+        "inputs": [
+          {
+            "optional": false
+          }
+        ],
+        "args": {
+          "format": "png",
+          "normalize": true
+        },
+        "outputs": [
+          {
+            "oid": null,
+            "path": null,
+            "value": null
+          }
+        ],
+        "status": "pending"
+      }
+    },
+    {
+      "id": 7,
+      "type": "output.export",
+      "pos": [
+        1317.01708984375,
+        363.1414794921875
+      ],
+      "size": [
+        152.8000030517578,
+        86
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "link": null,
+          "name": "IMAGE_FILE",
+          "type": "IMAGE_FILE",
+          "shape": 7,
+          "localized_name": "IMAGE_FILE"
+        },
+        {
+          "link": 6,
+          "name": "DICOM_FILE",
+          "type": "DICOM_FILE",
+          "shape": 7,
+          "localized_name": "DICOM_FILE"
+        },
+        {
+          "link": null,
+          "name": "DICOM_VOLUME_FILE",
+          "type": "DICOM_VOLUME_FILE",
+          "shape": 7,
+          "localized_name": "DICOM_VOLUME_FILE"
+        },
+        {
+          "link": null,
+          "name": "NIFTI_FILE",
+          "type": "NIFTI_FILE",
+          "shape": 7,
+          "localized_name": "NIFTI_FILE"
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "output.export"
+      },
+      "widgets_values": [],
+      "pmt_fields": {
+        "type": "output",
+        "plugin_name": "output",
+        "function_name": "export",
+        "inputs": [
+          {
+            "optional": true
+          },
+          {
+            "optional": true
+          },
+          {
+            "optional": true
+          },
+          {
+            "optional": true
+          }
+        ],
+        "args": {},
+        "outputs": [],
+        "status": "pending"
+      }
+    },
+    {
+      "id": 6,
+      "type": "preview.volview",
+      "pos": [
+        1526.077880859375,
+        199.8821563720703
+      ],
+      "size": [
+        152.8000030517578,
+        86
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "link": 5,
+          "name": "IMAGE_FILE",
+          "type": "IMAGE_FILE",
+          "shape": 7,
+          "localized_name": "IMAGE_FILE"
+        },
+        {
+          "link": null,
+          "name": "DICOM_FILE",
+          "type": "DICOM_FILE",
+          "shape": 7,
+          "localized_name": "DICOM_FILE"
+        },
+        {
+          "link": null,
+          "name": "DICOM_VOLUME_FILE",
+          "type": "DICOM_VOLUME_FILE",
+          "shape": 7,
+          "localized_name": "DICOM_VOLUME_FILE"
+        },
+        {
+          "link": null,
+          "name": "NIFTI_FILE",
+          "type": "NIFTI_FILE",
+          "shape": 7,
+          "localized_name": "NIFTI_FILE"
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "preview.volview"
+      },
+      "widgets_values": [],
+      "pmt_fields": {
+        "type": "preview",
+        "plugin_name": "preview",
+        "function_name": "volview",
+        "inputs": [
+          {
+            "optional": true
+          },
+          {
+            "optional": true
+          },
+          {
+            "optional": true
+          },
+          {
+            "optional": true
+          }
+        ],
+        "args": {},
+        "outputs": [],
+        "status": "pending"
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "DICOM_FILE"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "2D"
+    ],
+    [
+      3,
+      3,
+      0,
+      5,
+      0,
+      "2D"
+    ],
+    [
+      4,
+      3,
+      0,
+      4,
+      0,
+      "2D"
+    ],
+    [
+      5,
+      4,
+      0,
+      6,
+      0,
+      "IMAGE_FILE"
+    ],
+    [
+      6,
+      5,
+      0,
+      7,
+      1,
+      "DICOM_FILE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
+  "version": 0.4
+}

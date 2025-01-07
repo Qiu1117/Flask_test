@@ -1,0 +1,1 @@
+{"plugin_name": "data_to_file", "function_name": "2d_to_image", "timestemp": "20250107-151045", "origin_node_ids": [1], "outputs": [{"output_name": "IMAGE_FILE", "output_type": "IMAGE_FILE", "output_path": "E:\\Cloud-Platform\\Metaset-Quant Backend\\ComfyUI\\test_cache\\test_pipeline_20250107151044\\node_4\\file.png", "message": "ok"}]}

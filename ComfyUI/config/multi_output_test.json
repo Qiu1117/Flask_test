@@ -1,0 +1,66 @@
+{
+	"plugin_name": "multi_output_test",
+	"description": "test multiple output data ",
+	"functions":[{
+		"function_name": "output_2diff_contrast",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "data",  
+				"description": "2D or 3D data",
+				"type": "2D3D"
+			}],
+			"args":[{
+				"name": "ratio",  
+				"description": "ratio of different contrasts",
+				"type": "number",
+				"ui": {"type": "number", "step": 0.1}
+			}
+			]
+		},
+		"output": [{
+				"name": "data1",  
+				"description": "data with contrast level 1",
+				"type": "2D3D"
+			},
+			{
+				"name": "data2",  
+				"description": "data with contrast level 2",
+				"type": "2D3D"
+			}
+		]
+	},
+	{
+		"function_name": "output_3diff_contrast",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "data",  
+				"description": "2D or 3D data",
+				"type": "2D3D"
+			}],
+			"args":[{
+				"name": "ratio",  
+				"description":  "ratio of different contrasts",
+				"type": "number",
+				"ui": {"type": "number", "step": 0.1}
+			}]
+		},
+		"output": [{
+				"name": "data1",  
+				"description": "data with contrast level 1",
+				"type": "2D3D"
+			},
+			{
+				"name": "data2",  
+				"description": "data with contrast level 2",
+				"type": "2D3D"
+			},
+			{
+				"name": "data3",  
+				"description": "data with contrast level 3",
+				"type": "2D3D"
+			}
+		]
+	}]
+}

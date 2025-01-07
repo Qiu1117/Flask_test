@@ -14,6 +14,8 @@ from db_models import db
 from config import ProductionConfig
 from flask_migrate import Migrate
 from db_models import Account, Dataset, Group
+from Pipeline import pipeline_bp
+
 
 
 app = Flask(__name__)
@@ -64,6 +66,9 @@ app.register_blueprint(retrieve)
 
 # ---------------------------------------dashboard--------------------------------
 app.register_blueprint(dashboard)
+
+# ---------------------------------------pipeline--------------------------------
+app.register_blueprint(pipeline_bp)
 
 
 if __name__ == "__main__":

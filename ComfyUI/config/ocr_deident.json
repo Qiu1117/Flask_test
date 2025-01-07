@@ -1,0 +1,45 @@
+{
+	"plugin_name": "ocr_deident",
+	"description": "ocr deidentification to remove specific texts from images",
+	"functions":[{
+		"function_name": "deident_ocr",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "dicom_obj",  
+				"description": "input dicom object. the dicom in general should be US data",
+				"type": "2Dobj"
+			}],
+			"args":[{
+				"name": "sensitive_list",  
+				"description": "list of dicom tag name to be removed from image, default value is ['PatientName', 'PatientID', 'PatientBirthDate']",
+				"type": "list",
+				"ui": {"type": "list_text"}
+			},
+			{
+				"name": "rectangle_roi",  
+				"description": "the x, y, width and height of the mask",
+				"type": "list",
+				"ui": {"type": "rectangle"}
+			},
+			{
+				"name": "roi_only",  
+				"description": "if only use manually defined mask",
+				"type": "bool",
+				"ui": {"type": "radio"}
+			},
+			{
+				"name": "use_gpu",  
+				"description": "if use GPU for text detection and recognition",
+				"type": "bool",
+				"ui": {"type": "radio"}
+			}]
+		},
+		"output": [{
+			"name": "data",  
+			"description": "output 2D image which has no sensitive texts",
+			"type": "2D"
+			}
+		]
+	}]
+}

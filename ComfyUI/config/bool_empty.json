@@ -1,0 +1,38 @@
+{
+	"plugin_name": "bool_empty",
+	"description": "test bool argument and empty output",
+	"functions":[{
+		"function_name": "output_2diff_contrast_with_bool",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "data",  
+				"description": "2D or 3D data",
+				"type": "2D3D"
+			}],
+			"args":[{
+				"name": "ratio",  
+				"description": "ratio of different contrasts",
+				"type": "number",
+				"ui": {"type": "number", "step": 0.1}
+			},
+			{
+				"name": "only_one_output",  
+				"description": "if only output one data, the other data is zeros not None",
+				"type": "bool",
+				"ui": {"type": "radio", "options":["Yes", "No"]}
+			}]
+		},
+		"output": [{
+				"name": "data1",  
+				"description": "data with contrast level 1",
+				"type": "2D3D"
+			},
+			{
+				"name": "data2",  
+				"description": "data with contrast level 2 if only_one_output is True, it is None",
+				"type": "2D3D"
+			}
+		]
+	}]
+}

@@ -1,0 +1,167 @@
+2025-01-07 14:43:53,510 [INFO] [PIPELINE] Current Level 1, Start Processing Node 1
+2025-01-07 14:43:53,510 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 14:43:53,510 [INFO] [PIPELINE] Start processing Output [1]
+2025-01-07 14:43:53,510 [INFO] [PIPELINE] Processing Link 1
+2025-01-07 14:43:53,510 [INFO] [PIPELINE] Pushed Node 2 status: pending
+2025-01-07 14:43:53,510 [INFO] [PIPELINE] Linked from 1 To 2 level on 2
+2025-01-07 14:43:53,510 [INFO] [PIPELINE] Linked NodeInput DICOM_FILE: DICOM_FILE, value None to DICOM_FILE of Node 2
+2025-01-07 14:43:53,511 [INFO] [PIPELINE] Finished Node 1
+2025-01-07 14:43:53,511 [INFO] [PIPELINE] Current Level 2, Start Processing Node 2
+2025-01-07 14:43:53,511 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 14:43:53,511 [INFO] [PIPELINE] Start processing Output [2]
+2025-01-07 14:43:53,511 [INFO] [PIPELINE] Processing Link 2
+2025-01-07 14:43:53,511 [INFO] [PIPELINE] Pushed Node 3 status: pending
+2025-01-07 14:43:53,512 [INFO] [PIPELINE] Linked from 2 To 3 level on 3
+2025-01-07 14:43:53,512 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 3
+2025-01-07 14:43:53,512 [INFO] [PIPELINE] Finished Node 2
+2025-01-07 14:43:53,512 [INFO] [PIPELINE] Current Level 3, Start Processing Node 3
+2025-01-07 14:43:53,512 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 14:43:53,513 [INFO] [PIPELINE] Start processing Output [3, 4]
+2025-01-07 14:43:53,513 [INFO] [PIPELINE] Processing Link 3
+2025-01-07 14:43:53,513 [INFO] [PIPELINE] Pushed Node 5 status: pending
+2025-01-07 14:43:53,513 [INFO] [PIPELINE] Linked from 3 To 5 level on 4
+2025-01-07 14:43:53,513 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 5
+2025-01-07 14:43:53,513 [INFO] [PIPELINE] Processing Link 4
+2025-01-07 14:43:53,513 [INFO] [PIPELINE] Pushed Node 4 status: pending
+2025-01-07 14:43:53,514 [INFO] [PIPELINE] Linked from 3 To 4 level on 4
+2025-01-07 14:43:53,514 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 4
+2025-01-07 14:43:53,514 [INFO] [PIPELINE] Start processing Output None
+2025-01-07 14:43:53,514 [INFO] [PIPELINE] No links for output test_txt of Node 3
+2025-01-07 14:43:53,514 [INFO] [PIPELINE] Finished Node 3
+2025-01-07 14:43:53,515 [INFO] [PIPELINE] Current Level 4, Start Processing Node 5
+2025-01-07 14:43:53,515 [INFO] [PIPELINE] Pending Nodes [4]
+2025-01-07 14:43:53,515 [INFO] [PIPELINE] Start processing Output [6]
+2025-01-07 14:43:53,515 [INFO] [PIPELINE] Processing Link 6
+2025-01-07 14:43:53,515 [INFO] [PIPELINE] Pushed Node 7 status: pending
+2025-01-07 14:43:53,515 [INFO] [PIPELINE] Linked from 5 To 7 level on 5
+2025-01-07 14:43:53,515 [INFO] [PIPELINE] Linked NodeInput DICOM_FILE: DICOM_FILE, value None to DICOM_FILE of Node 7
+2025-01-07 14:43:53,516 [INFO] [PIPELINE] Finished Node 5
+2025-01-07 14:43:53,516 [INFO] [PIPELINE] Current Level 4, Start Processing Node 4
+2025-01-07 14:43:53,516 [INFO] [PIPELINE] Pending Nodes [7]
+2025-01-07 14:43:53,516 [INFO] [PIPELINE] Start processing Output [5]
+2025-01-07 14:43:53,516 [INFO] [PIPELINE] Processing Link 5
+2025-01-07 14:43:53,517 [INFO] [PIPELINE] Pushed Node 6 status: pending
+2025-01-07 14:43:53,517 [INFO] [PIPELINE] Linked from 4 To 6 level on 5
+2025-01-07 14:43:53,517 [INFO] [PIPELINE] Linked NodeInput IMAGE_FILE: IMAGE_FILE, value None to IMAGE_FILE of Node 6
+2025-01-07 14:43:53,517 [INFO] [PIPELINE] Finished Node 4
+2025-01-07 14:43:53,517 [INFO] [PIPELINE] Current Level 5, Start Processing Node 7
+2025-01-07 14:43:53,517 [INFO] [PIPELINE] Pending Nodes [6]
+2025-01-07 14:43:53,518 [INFO] [PIPELINE] Add End node 7
+2025-01-07 14:43:53,518 [INFO] [PIPELINE] Finished Node 7
+2025-01-07 14:43:53,518 [INFO] [PIPELINE] Current Level 5, Start Processing Node 6
+2025-01-07 14:43:53,518 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 14:43:53,518 [INFO] [PIPELINE] Add End node 6
+2025-01-07 14:43:53,518 [INFO] [PIPELINE] Finished Node 6
+2025-01-07 14:43:53,519 [INFO] [PIPELINE] Max level of the pipeline is 5
+2025-01-07 14:43:53,519 [INFO] [PIPELINE] Start prepare node input based on status reversely from current node
+2025-01-07 14:43:53,519 [INFO] [PIPELINE] Finished updating node input based on status
+2025-01-07 14:43:53,519 [DEBUG] [PIPELINE] processed_nodes: {1: [], 2: [], 3: [], 4: [], 5: []}
+2025-01-07 14:43:53,519 [DEBUG] [PIPELINE] ongoing_node_level_key: {1: [1], 2: [2], 3: [3], 4: [5, 4], 5: [7, 6]}
+2025-01-07 14:43:53,520 [INFO] [PIPELINE] Current Level 1
+2025-01-07 14:43:53,520 [INFO] [PIPELINE] [STEP 1 ON]
+2025-01-07 14:43:53,520 [INFO] [PIPELINE] Current node 1 on running
+2025-01-07 14:43:53,520 [INFO] [PIPELINE] [ASSIGN_VALUES_TO_INPUT] Assigned value to Node Node 2: converter, link to Node [3]'s input DICOM_FILE from Node 1's output DICOM_FILE
+2025-01-07 14:43:53,521 [INFO] [PIPELINE] [STEP 1 OFF]
+2025-01-07 14:43:53,521 [INFO] [PIPELINE] Current Level 2
+2025-01-07 14:43:53,522 [INFO] [PIPELINE] [STEP 2 ON]
+2025-01-07 14:43:53,522 [INFO] [PIPELINE] Current node 2 on running
+2025-01-07 14:43:53,522 [INFO] [PIPELINE] [CONVERTER] Processing converter node 2 converter.dicom_to_2d
+2025-01-07 14:43:53,529 [INFO] [PIPELINE] [CONVERTER] Successfully saved data
+2025-01-07 14:43:53,530 [INFO] [PIPELINE] [CONVERTER] Assigned value to Node 2's output data
+2025-01-07 14:43:53,530 [INFO] [PIPELINE] [SUSTAIN] Sustaining outputs
+2025-01-07 14:43:53,531 [INFO] [PIPELINE] Successfully saved cache data into pickle data
+2025-01-07 14:43:53,531 [INFO] [PIPELINE] [SUSTAIN] Sustaining finished
+2025-01-07 14:43:53,531 [INFO] [PIPELINE] [ASSIGN_VALUES_TO_INPUT] Assigned value to Node Node 3: plugin, link to Node [5, 4]'s input data from Node 2's output data
+2025-01-07 14:43:53,532 [INFO] [PIPELINE] [STEP 2 OFF]
+2025-01-07 14:43:53,532 [INFO] [PIPELINE] Current Level 3
+2025-01-07 14:43:53,532 [INFO] [PIPELINE] [STEP 3 ON]
+2025-01-07 14:43:53,532 [INFO] [PIPELINE] Current node 3 on running
+2025-01-07 14:43:53,532 [INFO] [PIPELINE] Processing function node 3 smooth.smooth_2d
+2025-01-07 14:43:53,532 [INFO] [PIPELINE] [PLUGIN] Try to run function smooth.smooth_2d
+2025-01-07 14:43:53,540 [INFO] [PIPELINE] [PLUGIN] Start to run the function with inputs {'data': ((384, 384), np.uint16(0), np.uint16(170)), 'sigma': 4} and outputs dict_keys(['data', 'test_txt'])
+2025-01-07 14:43:53,540 [INFO] [PIPELINE] [PLUGIN] [LISTEN ON] plugin's print
+2025-01-07 14:43:53,544 [INFO] [PIPELINE] [PLUGIN] [LISTEN OFF] plugin execution done
+2025-01-07 14:43:53,544 [INFO] [PIPELINE] [ASSIGN_OUTPUTS] Assigned value to Node 3's output data
+2025-01-07 14:43:53,544 [INFO] [PIPELINE] [ASSIGN_OUTPUTS] Assigned value to Node 3's output test_txt
+2025-01-07 14:43:53,544 [INFO] [PIPELINE] [SUSTAIN] Sustaining outputs
+2025-01-07 14:43:53,545 [INFO] [PIPELINE] Successfully saved cache data into pickle data
+2025-01-07 14:43:53,545 [INFO] [PIPELINE] [SUSTAIN] Sustaining finished
+2025-01-07 14:43:53,546 [INFO] [PIPELINE] [ASSIGN_VALUES_TO_INPUT] Assigned value to Node Node 5: converter, link to Node [7]'s input data from Node 3's output data
+2025-01-07 14:43:53,546 [INFO] [PIPELINE] [ASSIGN_VALUES_TO_INPUT] Assigned value to Node Node 4: converter, link to Node [6]'s input data from Node 3's output data
+2025-01-07 14:43:53,546 [INFO] [PIPELINE] [STEP 3 OFF]
+2025-01-07 14:43:53,547 [INFO] [PIPELINE] Current Level 4
+2025-01-07 14:43:53,547 [INFO] [PIPELINE] [STEP 4 ON]
+2025-01-07 14:43:53,547 [INFO] [PIPELINE] Current node 5 on running
+2025-01-07 14:43:53,547 [INFO] [PIPELINE] [CONVERTER] Processing converter node 5 converter.2d_to_dicom
+2025-01-07 14:43:53,548 [ERROR] [PIPELINE] [CONVERTER] Dataset.save_as() got an unexpected keyword argument 'little_endian'
+2025-01-07 14:43:53,548 [INFO] [PIPELINE] [SUSTAIN] Sustaining outputs
+2025-01-07 14:43:53,548 [INFO] [PIPELINE] [SUSTAIN] Sustaining finished
+2025-01-07 14:43:53,549 [INFO] [PIPELINE] [ASSIGN_VALUES_TO_INPUT] Assigned value to Node Node 7: output, link to Node []'s input DICOM_FILE from Node 5's output DICOM_FILE
+2025-01-07 14:43:53,549 [INFO] [PIPELINE] [STEP 4 OFF]
+2025-01-07 14:43:53,549 [INFO] [PIPELINE] [STEP 5 ON]
+2025-01-07 14:43:53,549 [INFO] [PIPELINE] Current node 4 on running
+2025-01-07 14:43:53,549 [INFO] [PIPELINE] [CONVERTER] Processing converter node 4 converter.2d_to_image
+2025-01-07 14:43:53,569 [DEBUG] [PIPELINE] Importing BlpImagePlugin
+2025-01-07 14:43:53,570 [DEBUG] [PIPELINE] Importing BmpImagePlugin
+2025-01-07 14:43:53,571 [DEBUG] [PIPELINE] Importing BufrStubImagePlugin
+2025-01-07 14:43:53,572 [DEBUG] [PIPELINE] Importing CurImagePlugin
+2025-01-07 14:43:53,572 [DEBUG] [PIPELINE] Importing DcxImagePlugin
+2025-01-07 14:43:53,573 [DEBUG] [PIPELINE] Importing DdsImagePlugin
+2025-01-07 14:43:53,575 [DEBUG] [PIPELINE] Importing EpsImagePlugin
+2025-01-07 14:43:53,576 [DEBUG] [PIPELINE] Importing FitsImagePlugin
+2025-01-07 14:43:53,576 [DEBUG] [PIPELINE] Importing FliImagePlugin
+2025-01-07 14:43:53,577 [DEBUG] [PIPELINE] Importing FpxImagePlugin
+2025-01-07 14:43:53,577 [DEBUG] [PIPELINE] Image: failed to import FpxImagePlugin: No module named 'olefile'
+2025-01-07 14:43:53,578 [DEBUG] [PIPELINE] Importing FtexImagePlugin
+2025-01-07 14:43:53,578 [DEBUG] [PIPELINE] Importing GbrImagePlugin
+2025-01-07 14:43:53,579 [DEBUG] [PIPELINE] Importing GifImagePlugin
+2025-01-07 14:43:53,579 [DEBUG] [PIPELINE] Importing GribStubImagePlugin
+2025-01-07 14:43:53,579 [DEBUG] [PIPELINE] Importing Hdf5StubImagePlugin
+2025-01-07 14:43:53,580 [DEBUG] [PIPELINE] Importing IcnsImagePlugin
+2025-01-07 14:43:53,581 [DEBUG] [PIPELINE] Importing IcoImagePlugin
+2025-01-07 14:43:53,581 [DEBUG] [PIPELINE] Importing ImImagePlugin
+2025-01-07 14:43:53,582 [DEBUG] [PIPELINE] Importing ImtImagePlugin
+2025-01-07 14:43:53,582 [DEBUG] [PIPELINE] Importing IptcImagePlugin
+2025-01-07 14:43:53,583 [DEBUG] [PIPELINE] Importing JpegImagePlugin
+2025-01-07 14:43:53,583 [DEBUG] [PIPELINE] Importing Jpeg2KImagePlugin
+2025-01-07 14:43:53,583 [DEBUG] [PIPELINE] Importing McIdasImagePlugin
+2025-01-07 14:43:53,584 [DEBUG] [PIPELINE] Importing MicImagePlugin
+2025-01-07 14:43:53,584 [DEBUG] [PIPELINE] Image: failed to import MicImagePlugin: No module named 'olefile'
+2025-01-07 14:43:53,584 [DEBUG] [PIPELINE] Importing MpegImagePlugin
+2025-01-07 14:43:53,585 [DEBUG] [PIPELINE] Importing MpoImagePlugin
+2025-01-07 14:43:53,588 [DEBUG] [PIPELINE] Importing MspImagePlugin
+2025-01-07 14:43:53,588 [DEBUG] [PIPELINE] Importing PalmImagePlugin
+2025-01-07 14:43:53,589 [DEBUG] [PIPELINE] Importing PcdImagePlugin
+2025-01-07 14:43:53,590 [DEBUG] [PIPELINE] Importing PcxImagePlugin
+2025-01-07 14:43:53,590 [DEBUG] [PIPELINE] Importing PdfImagePlugin
+2025-01-07 14:43:53,592 [DEBUG] [PIPELINE] Importing PixarImagePlugin
+2025-01-07 14:43:53,593 [DEBUG] [PIPELINE] Importing PngImagePlugin
+2025-01-07 14:43:53,593 [DEBUG] [PIPELINE] Importing PpmImagePlugin
+2025-01-07 14:43:53,593 [DEBUG] [PIPELINE] Importing PsdImagePlugin
+2025-01-07 14:43:53,594 [DEBUG] [PIPELINE] Importing QoiImagePlugin
+2025-01-07 14:43:53,594 [DEBUG] [PIPELINE] Importing SgiImagePlugin
+2025-01-07 14:43:53,595 [DEBUG] [PIPELINE] Importing SpiderImagePlugin
+2025-01-07 14:43:53,595 [DEBUG] [PIPELINE] Importing SunImagePlugin
+2025-01-07 14:43:53,596 [DEBUG] [PIPELINE] Importing TgaImagePlugin
+2025-01-07 14:43:53,596 [DEBUG] [PIPELINE] Importing TiffImagePlugin
+2025-01-07 14:43:53,596 [DEBUG] [PIPELINE] Importing WebPImagePlugin
+2025-01-07 14:43:53,610 [DEBUG] [PIPELINE] Importing WmfImagePlugin
+2025-01-07 14:43:53,611 [DEBUG] [PIPELINE] Importing XbmImagePlugin
+2025-01-07 14:43:53,612 [DEBUG] [PIPELINE] Importing XpmImagePlugin
+2025-01-07 14:43:53,612 [DEBUG] [PIPELINE] Importing XVThumbImagePlugin
+2025-01-07 14:43:53,625 [INFO] [PIPELINE] [CONVERTER] Successfully saved data
+2025-01-07 14:43:53,625 [INFO] [PIPELINE] [CONVERTER] Assigned value to Node 4's output file
+2025-01-07 14:43:53,625 [INFO] [PIPELINE] [SUSTAIN] Sustaining outputs
+2025-01-07 14:43:53,626 [INFO] [PIPELINE] [SUSTAIN] Sustaining finished
+2025-01-07 14:43:53,626 [INFO] [PIPELINE] [ASSIGN_VALUES_TO_INPUT] Assigned value to Node Node 6: preview, link to Node []'s input IMAGE_FILE from Node 4's output IMAGE_FILE
+2025-01-07 14:43:53,626 [INFO] [PIPELINE] [STEP 5 OFF]
+2025-01-07 14:43:53,627 [INFO] [PIPELINE] Current Level 5
+2025-01-07 14:43:53,627 [INFO] [PIPELINE] [STEP 6 ON]
+2025-01-07 14:43:53,627 [INFO] [PIPELINE] Current node 7 on running
+2025-01-07 14:43:53,627 [INFO] [PIPELINE] [STEP 6 OFF]
+2025-01-07 14:43:53,627 [INFO] [PIPELINE] [STEP 7 ON]
+2025-01-07 14:43:53,628 [INFO] [PIPELINE] Current node 6 on running
+2025-01-07 14:43:53,628 [INFO] [PIPELINE] [STEP 7 OFF]
+2025-01-07 14:43:53,628 [INFO] [PIPELINE] The whole pipeline finished
+2025-01-07 14:43:53,663 [INFO] [PIPELINE] 127.0.0.1 - - [07/Jan/2025 14:43:53] "POST /pipelines/run-once HTTP/1.1" 200 -
+2025-01-07 14:47:19,852 [INFO] [PIPELINE]  * Detected change in 'e:\\Cloud-Platform\\Metaset-Quant Backend\\Pipeline.py', reloading

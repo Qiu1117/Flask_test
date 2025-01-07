@@ -1,0 +1,76 @@
+{
+"plugin_name": "head_deident",  
+"description": "Head de-identifcation",
+"functions":[{   
+       "function_name": "execution",  
+       "description": "main function",
+       "input":{
+              "source":[{     
+                            "name": "head_data",  
+                            "description": "It is a head scan",
+                            "type": "3D"
+                     }
+              ],
+              "args":[{      
+                            "name": "modality",  
+                            "description": "is the data from ct or mr",
+                            "type": "number",
+                            "ui": {"type":"select", "options":["CT", "MR"]}
+                     },
+                     {      
+                            "name": "threshold",  
+                            "description": "manually set the mask threshold",
+                            "type": "number",
+                            "ui": {"type":"number"}
+                     },
+                     {
+                            "name": "thick",  
+                            "description": "thickness of the mask",
+                            "type": "number",
+                            "ui": {"type":"number"}
+                     },
+                     {
+                            "name": "distort",  
+                            "description": "if distort or not",
+                            "type": "bool",
+                            "ui": {"type":"radio", "name":"distortion", "options":["yes", "no"]}
+                     },
+                     {
+                            "name": "organ",  
+                            "description": "operation for each organ",
+                            "type": "dict",
+                            "ui": {"type":"select_group", "options":{"eyes": ["blur", "remove", "keep"], 
+                                                                      "nose": ["blur", "remove", "keep"], 
+                                                                      "mouth": ["blur", "remove", "keep"]}}
+                     }
+              ]
+              },
+              "output":[{
+                     "name": "de_identified_data", 
+                     "description": "the de-identified data",
+                     "type": "3D" 
+              },
+              {
+                     "name": "mask", 
+                     "description": "The intermediate result - original head mask",
+                     "type": "3D" 
+              },
+              {
+                     "name": "refined_mask", 
+                     "description": "The intermediate result - refined head mask",
+                     "type": "3D" 
+              },
+              {
+                     "name": "contour", 
+                     "description": "The intermediate result - head contour mask",
+                     "type": "3D" 
+              },
+              {
+                     "name": "difference_data", 
+                     "description": "The difference between the original data and de-identified data",
+                     "type": "3D" 
+              }
+              ]
+       }
+]
+}

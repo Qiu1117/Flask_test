@@ -1,0 +1,32 @@
+{
+	"plugin_name": "smooth",
+	"description": "smooth the any input data, no matter 2D or 3D",
+	"functions":[{
+		"function_name": "smooth",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "data",  
+				"description": "2D or 3D data",
+				"type": "0|2"
+			}],
+			"args":[{
+				"name": "sigma",  
+				"description": "hyperparameter of gaussian smooth",
+				"type": "6",
+				"ui": {"type": "number"}
+			}]
+		},
+		"output": [{
+			"name": "data",  
+			"description": "smoothed 2D or 3D data, output same size as input",
+			"type": "0|2"
+			},
+			{
+			"name": "test_txt",
+			"description": "output some sentences",
+			"type": "5"
+			}
+		]
+	}]
+}

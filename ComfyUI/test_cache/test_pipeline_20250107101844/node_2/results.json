@@ -1,0 +1,1 @@
+{"plugin_name": "file_to_data", "function_name": "dicom_to_2d", "timestemp": "20250107-101844", "origin_node_ids": [1], "outputs": [{"output_name": "data", "output_type": "2D", "output_path": "E:\\Cloud-Platform\\Metaset-Quant Backend\\ComfyUI\\test_cache\\test_pipeline_20250107101844\\node_2\\data", "message": "ok"}]}

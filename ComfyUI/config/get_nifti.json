@@ -1,0 +1,22 @@
+{
+	"plugin_name": "get_nifti",
+	"description": "生成nifti并存入缓存,返回这个序列的nifti地址",
+	"functions":[{
+		"function_name": "get_nifti",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "file_list",  
+				"description": "3D data",
+				"type": "3D"
+			}],
+			"args":[]
+		},
+		"output": [{
+			"name": "nifti_path",  
+			"description": "nifti data of the series",
+			"type": "3D"
+			}
+		]
+	}]
+}

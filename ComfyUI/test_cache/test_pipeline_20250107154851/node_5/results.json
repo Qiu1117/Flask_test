@@ -1,0 +1,1 @@
+{"plugin_name": "data_to_file", "function_name": "2d_to_dicom", "timestemp": "20250107-154851", "origin_node_ids": [1], "outputs": [{"output_name": "DICOM_FILE", "output_type": "DICOM_FILE", "output_path": "None", "message": "ok"}]}

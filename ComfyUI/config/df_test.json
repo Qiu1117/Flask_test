@@ -1,0 +1,90 @@
+{
+	"plugin_name": "df_output_test",
+	"description": "test input and output about dataframe",
+	"functions": [
+		{
+			"function_name": "obtain_df",
+			"description": "obtain dataframe with given data",
+			"input": {
+				"source": [
+					{
+						"name": "data",
+						"description": "any data",
+						"type": "2D3D"
+					}
+				],
+				"args": []
+			},
+			"output": [
+				{
+					"name": "dataframe",
+					"description": "predefined dataframe",
+					"type": "df"
+				},
+				{
+					"name": "whole_df",
+					"description": "the html of the dataframe",
+					"type": "text"
+				}
+			]
+		},
+		{
+			"function_name": "obtain_df_no_data",
+			"description": "obtain dataframe without given data, to test no input plugin",
+			"input": {
+				"source": [],
+				"args": []
+			},
+			"output": [
+				{
+					"name": "dataframe",
+					"description": "predefined dataframe",
+					"type": "df"
+				},
+				{
+					"name": "whole_df",
+					"description": "the html of the dataframe",
+					"type": "text"
+				}
+			]
+		},
+		{
+			"function_name": "get_data",
+			"description": "get specific data from given dataframe",
+			"input": {
+				"source": [
+					{
+						"name": "dataframe",
+						"description": "any dataframe, currently only input from obtain_df function",
+						"type": "df"
+					}
+				],
+				"args": [
+					{
+						"name": "row",
+						"description": "the row index of the dataframe, can be either index name or index number (0 - 9)",
+						"type": "text",
+						"ui": {
+							"type": "text"
+						}
+					},
+					{
+						"name": "col",
+						"description": "the col index of the dataframe, can be either index name or index number (0 - 9)",
+						"type": "text",
+						"ui": {
+							"type": "text"
+						}
+					}
+				]
+			},
+			"output": [
+				{
+					"name": "value",
+					"description": "content of the cell of the dataframe with given row and col",
+					"type": "number"
+				}
+			]
+		}
+	]
+}

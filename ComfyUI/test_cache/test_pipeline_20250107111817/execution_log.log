@@ -1,0 +1,128 @@
+2025-01-07 11:18:17,501 [INFO] [PIPELINE] Current Level 1, Start Processing Node 1
+2025-01-07 11:18:17,501 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:17,501 [INFO] [PIPELINE] Start processing Output [1]
+2025-01-07 11:18:17,503 [INFO] [PIPELINE] Processing Link 1
+2025-01-07 11:18:17,503 [INFO] [PIPELINE] Pushed Node 2 status: pending
+2025-01-07 11:18:17,503 [INFO] [PIPELINE] Linked from 1 To 2 level on 2
+2025-01-07 11:18:17,503 [INFO] [PIPELINE] Linked NodeInput DICOM_FILE: DICOM_FILE, value None to DICOM_FILE of Node 2
+2025-01-07 11:18:17,503 [INFO] [PIPELINE] Finished Node 1
+2025-01-07 11:18:17,504 [INFO] [PIPELINE] Current Level 2, Start Processing Node 2
+2025-01-07 11:18:17,504 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:17,504 [INFO] [PIPELINE] Start processing Output [2]
+2025-01-07 11:18:17,504 [INFO] [PIPELINE] Processing Link 2
+2025-01-07 11:18:17,504 [INFO] [PIPELINE] Pushed Node 3 status: pending
+2025-01-07 11:18:17,504 [INFO] [PIPELINE] Linked from 2 To 3 level on 3
+2025-01-07 11:18:17,505 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 3
+2025-01-07 11:18:17,505 [INFO] [PIPELINE] Finished Node 2
+2025-01-07 11:18:17,505 [INFO] [PIPELINE] Current Level 3, Start Processing Node 3
+2025-01-07 11:18:17,505 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:17,505 [INFO] [PIPELINE] Start processing Output [3, 4]
+2025-01-07 11:18:17,506 [INFO] [PIPELINE] Processing Link 3
+2025-01-07 11:18:17,506 [INFO] [PIPELINE] Pushed Node 5 status: pending
+2025-01-07 11:18:17,506 [INFO] [PIPELINE] Linked from 3 To 5 level on 4
+2025-01-07 11:18:17,506 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 5
+2025-01-07 11:18:17,506 [INFO] [PIPELINE] Processing Link 4
+2025-01-07 11:18:17,506 [INFO] [PIPELINE] Pushed Node 4 status: pending
+2025-01-07 11:18:17,506 [INFO] [PIPELINE] Linked from 3 To 4 level on 4
+2025-01-07 11:18:17,507 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 4
+2025-01-07 11:18:17,507 [INFO] [PIPELINE] Start processing Output None
+2025-01-07 11:18:17,507 [INFO] [PIPELINE] No links for output test_txt of Node 3
+2025-01-07 11:18:17,507 [INFO] [PIPELINE] Finished Node 3
+2025-01-07 11:18:17,507 [INFO] [PIPELINE] Current Level 4, Start Processing Node 5
+2025-01-07 11:18:17,507 [INFO] [PIPELINE] Pending Nodes [4]
+2025-01-07 11:18:17,508 [INFO] [PIPELINE] Start processing Output [6]
+2025-01-07 11:18:17,508 [INFO] [PIPELINE] Processing Link 6
+2025-01-07 11:18:17,508 [INFO] [PIPELINE] Pushed Node 7 status: pending
+2025-01-07 11:18:17,508 [INFO] [PIPELINE] Linked from 5 To 7 level on 5
+2025-01-07 11:18:17,508 [INFO] [PIPELINE] Linked NodeInput DICOM_FILE: DICOM_FILE, value None to DICOM_FILE of Node 7
+2025-01-07 11:18:17,509 [INFO] [PIPELINE] Finished Node 5
+2025-01-07 11:18:17,509 [INFO] [PIPELINE] Current Level 4, Start Processing Node 4
+2025-01-07 11:18:17,509 [INFO] [PIPELINE] Pending Nodes [7]
+2025-01-07 11:18:17,509 [INFO] [PIPELINE] Start processing Output [5]
+2025-01-07 11:18:17,509 [INFO] [PIPELINE] Processing Link 5
+2025-01-07 11:18:17,510 [INFO] [PIPELINE] Pushed Node 6 status: pending
+2025-01-07 11:18:17,510 [INFO] [PIPELINE] Linked from 4 To 6 level on 5
+2025-01-07 11:18:17,510 [INFO] [PIPELINE] Linked NodeInput IMAGE_FILE: IMAGE_FILE, value None to IMAGE_FILE of Node 6
+2025-01-07 11:18:17,510 [INFO] [PIPELINE] Finished Node 4
+2025-01-07 11:18:17,510 [INFO] [PIPELINE] Current Level 5, Start Processing Node 7
+2025-01-07 11:18:17,510 [INFO] [PIPELINE] Pending Nodes [6]
+2025-01-07 11:18:17,510 [INFO] [PIPELINE] Add End node 7
+2025-01-07 11:18:17,511 [INFO] [PIPELINE] Finished Node 7
+2025-01-07 11:18:17,511 [INFO] [PIPELINE] Current Level 5, Start Processing Node 6
+2025-01-07 11:18:17,511 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:17,511 [INFO] [PIPELINE] Add End node 6
+2025-01-07 11:18:17,511 [INFO] [PIPELINE] Finished Node 6
+2025-01-07 11:18:17,512 [INFO] [PIPELINE] Max level of the pipeline is 5
+2025-01-07 11:18:17,512 [INFO] [PIPELINE] Start prepare node input based on status reversely from current node
+2025-01-07 11:18:17,512 [INFO] [PIPELINE] Finished updating node input based on status
+2025-01-07 11:18:17,513 [DEBUG] [PIPELINE] processed_nodes: {1: [], 2: [], 3: [], 4: [], 5: []}
+2025-01-07 11:18:17,513 [DEBUG] [PIPELINE] ongoing_node_level_key: {1: [1], 2: [2], 3: [3], 4: [5, 4], 5: [7, 6]}
+2025-01-07 11:18:21,818 [INFO] [PIPELINE] Current Level 1
+2025-01-07 11:18:21,818 [INFO] [PIPELINE] [STEP 1 ON]
+2025-01-07 11:18:21,818 [INFO] [PIPELINE] Current node 1 on running
+2025-01-07 11:18:24,051 [INFO] [PIPELINE] 127.0.0.1 - - [07/Jan/2025 11:18:24] "POST /pipelines/run-once HTTP/1.1" 200 -
+2025-01-07 11:18:33,129 [INFO] [PIPELINE] 127.0.0.1 - - [07/Jan/2025 11:18:33] "OPTIONS /pipelines/run-once HTTP/1.1" 200 -
+2025-01-07 11:18:33,440 [INFO] [PIPELINE] Current Level 1, Start Processing Node 1
+2025-01-07 11:18:33,441 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:33,441 [INFO] [PIPELINE] Start processing Output [1]
+2025-01-07 11:18:33,441 [INFO] [PIPELINE] Processing Link 1
+2025-01-07 11:18:33,441 [INFO] [PIPELINE] Pushed Node 2 status: pending
+2025-01-07 11:18:33,441 [INFO] [PIPELINE] Linked from 1 To 2 level on 2
+2025-01-07 11:18:33,442 [INFO] [PIPELINE] Linked NodeInput DICOM_FILE: DICOM_FILE, value None to DICOM_FILE of Node 2
+2025-01-07 11:18:33,442 [INFO] [PIPELINE] Finished Node 1
+2025-01-07 11:18:33,442 [INFO] [PIPELINE] Current Level 2, Start Processing Node 2
+2025-01-07 11:18:33,442 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:33,442 [INFO] [PIPELINE] Start processing Output [2]
+2025-01-07 11:18:33,442 [INFO] [PIPELINE] Processing Link 2
+2025-01-07 11:18:33,443 [INFO] [PIPELINE] Pushed Node 3 status: pending
+2025-01-07 11:18:33,443 [INFO] [PIPELINE] Linked from 2 To 3 level on 3
+2025-01-07 11:18:33,443 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 3
+2025-01-07 11:18:33,443 [INFO] [PIPELINE] Finished Node 2
+2025-01-07 11:18:33,443 [INFO] [PIPELINE] Current Level 3, Start Processing Node 3
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Start processing Output [3, 4]
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Processing Link 3
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Pushed Node 5 status: pending
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Linked from 3 To 5 level on 4
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 5
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Processing Link 4
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Pushed Node 4 status: pending
+2025-01-07 11:18:33,444 [INFO] [PIPELINE] Linked from 3 To 4 level on 4
+2025-01-07 11:18:33,446 [INFO] [PIPELINE] Linked NodeInput data: 2D, value None to data of Node 4
+2025-01-07 11:18:33,446 [INFO] [PIPELINE] Start processing Output None
+2025-01-07 11:18:33,446 [INFO] [PIPELINE] No links for output test_txt of Node 3
+2025-01-07 11:18:33,446 [INFO] [PIPELINE] Finished Node 3
+2025-01-07 11:18:33,446 [INFO] [PIPELINE] Current Level 4, Start Processing Node 5
+2025-01-07 11:18:33,447 [INFO] [PIPELINE] Pending Nodes [4]
+2025-01-07 11:18:33,447 [INFO] [PIPELINE] Start processing Output [6]
+2025-01-07 11:18:33,447 [INFO] [PIPELINE] Processing Link 6
+2025-01-07 11:18:33,447 [INFO] [PIPELINE] Pushed Node 7 status: pending
+2025-01-07 11:18:33,447 [INFO] [PIPELINE] Linked from 5 To 7 level on 5
+2025-01-07 11:18:33,447 [INFO] [PIPELINE] Linked NodeInput DICOM_FILE: DICOM_FILE, value None to DICOM_FILE of Node 7
+2025-01-07 11:18:33,448 [INFO] [PIPELINE] Finished Node 5
+2025-01-07 11:18:33,448 [INFO] [PIPELINE] Current Level 4, Start Processing Node 4
+2025-01-07 11:18:33,448 [INFO] [PIPELINE] Pending Nodes [7]
+2025-01-07 11:18:33,448 [INFO] [PIPELINE] Start processing Output [5]
+2025-01-07 11:18:33,448 [INFO] [PIPELINE] Processing Link 5
+2025-01-07 11:18:33,449 [INFO] [PIPELINE] Pushed Node 6 status: pending
+2025-01-07 11:18:33,449 [INFO] [PIPELINE] Linked from 4 To 6 level on 5
+2025-01-07 11:18:33,449 [INFO] [PIPELINE] Linked NodeInput IMAGE_FILE: IMAGE_FILE, value None to IMAGE_FILE of Node 6
+2025-01-07 11:18:33,449 [INFO] [PIPELINE] Finished Node 4
+2025-01-07 11:18:33,449 [INFO] [PIPELINE] Current Level 5, Start Processing Node 7
+2025-01-07 11:18:33,450 [INFO] [PIPELINE] Pending Nodes [6]
+2025-01-07 11:18:33,450 [INFO] [PIPELINE] Add End node 7
+2025-01-07 11:18:33,450 [INFO] [PIPELINE] Finished Node 7
+2025-01-07 11:18:33,450 [INFO] [PIPELINE] Current Level 5, Start Processing Node 6
+2025-01-07 11:18:33,450 [INFO] [PIPELINE] Pending Nodes []
+2025-01-07 11:18:33,450 [INFO] [PIPELINE] Add End node 6
+2025-01-07 11:18:33,451 [INFO] [PIPELINE] Finished Node 6
+2025-01-07 11:18:33,451 [INFO] [PIPELINE] Max level of the pipeline is 5
+2025-01-07 11:18:33,451 [INFO] [PIPELINE] Start prepare node input based on status reversely from current node
+2025-01-07 11:18:33,451 [INFO] [PIPELINE] Finished updating node input based on status
+2025-01-07 11:18:33,452 [DEBUG] [PIPELINE] processed_nodes: {1: [], 2: [], 3: [], 4: [], 5: []}
+2025-01-07 11:18:33,452 [DEBUG] [PIPELINE] ongoing_node_level_key: {1: [1], 2: [2], 3: [3], 4: [5, 4], 5: [7, 6]}
+2025-01-07 11:18:33,453 [INFO] [PIPELINE] Current Level 1
+2025-01-07 11:18:33,453 [INFO] [PIPELINE] [STEP 1 ON]
+2025-01-07 11:18:33,453 [INFO] [PIPELINE] Current node 1 on running
+2025-01-07 11:18:55,155 [INFO] [PIPELINE] 127.0.0.1 - - [07/Jan/2025 11:18:55] "POST /pipelines/run-once HTTP/1.1" 200 -
+2025-01-07 11:19:08,352 [INFO] [PIPELINE]  * Detected change in 'e:\\Cloud-Platform\\Metaset-Quant Backend\\ComfyUI\\run_pipeline_latest.py', reloading

@@ -1,0 +1,71 @@
+{
+	"plugin_name": "multi_input_test",
+	"description": "test multiple input data ",
+	"functions":[{
+		"function_name": "add_3data_together",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "data1",  
+				"description": "2D or 3D data",
+				"type": "2D3D"
+			},
+			{
+				"name": "data2",  
+				"description": "2D or 3D data, depends on data1",
+				"type": "2D3D"
+			},
+			{
+				"name": "data3",  
+				"description": "2D or 3D data, depends on data1",
+				"type": "2D3D"
+			}],
+			"args":[{
+				"name": "ratioA",  
+				"description": "ratio of data2",
+				"type": "number",
+				"ui": {"type": "number", "step": 0.1}
+			},
+			{
+				"name": "ratioB",  
+				"description": "ratio of data3",
+				"type": "number",
+				"ui": {"type": "number", "step": 0.1}
+			}]
+		},
+		"output": [{
+			"name": "data",  
+			"description": "smoothed 2D or 3D data, output same size as input",
+			"type": "2D3D"
+			}
+		]
+	},
+	{
+		"function_name": "add_2data_together",
+		"description": "main function",
+		"input":{ 
+			"source": [{
+				"name": "data1",  
+				"description": "2D or 3D data",
+				"type": "2D3D"
+			},
+			{
+				"name": "data2",  
+				"description": "2D or 3D data, depends on data1",
+				"type": "2D3D"
+			}],
+			"args":[{
+				"name": "ratioA",  
+				"description": "ratio of data2",
+				"type": "number",
+				"ui": {"type": "number", "step": 0.1}
+			}]
+		},
+		"output": [{
+			"name": "data",  
+			"description": "smoothed 2D or 3D data, output same size as input",
+			"type": "2D3D"
+			}
+		]
+	}]
+}

@@ -92,6 +92,7 @@ def retrieve_datasetinfo():
                 {
                     "PatientOrthancID": db_result.patient_orthanc_id,
                     "Dataset_id": db_result.dataset_id,
+                    "status": "valid",
                 }
             )
     elif level == "Study":
@@ -104,6 +105,7 @@ def retrieve_datasetinfo():
                     "StudyOrthancID": db_result.study_orthanc_id,
                     "PatientOrthancID": db_result.patient_orthanc_id,
                     "DatasetID": db_result.dataset_id,
+                    "status": "valid",
                 }
             )
     elif level == "Series":
@@ -117,6 +119,7 @@ def retrieve_datasetinfo():
                     "StudyOrthancID": db_result.study_orthanc_id,
                     "PatientOrthancID": db_result.patient_orthanc_id,
                     "DatasetID": db_result.dataset_id,
+                    "status": "valid",
                 }
             )
     elif level == "Instance":
@@ -129,7 +132,11 @@ def retrieve_datasetinfo():
                     "InstanceOrthancID": db_result.instance_orthanc_id,
                     "SeriesOrthancID": db_result.series_orthanc_id,
                     "Status": db_result.status,
+                    "status": "valid",
                 }
             )
+
+    if not db_results:
+        db_results.append({"status": "Data is invalid."})
 
     return jsonify(db_results), 200
