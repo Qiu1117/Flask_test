@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, send_file, session
 from flask_cors import CORS
 from flask import g
-import json
 import os
 import requests
 from MPF_Cal import mpf

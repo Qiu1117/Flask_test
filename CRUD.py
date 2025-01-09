@@ -2,15 +2,14 @@ from flask import (
     Flask,
     jsonify,
     request,
-    Response,
-    stream_with_context,
     Blueprint,
     abort,
+    make_response,
+    send_file
 )
-import time
-import sqlite3
 from middleware import token_required, permission_check
 import json
+import os
 import shortuuid
 from flask import g
 from flask_cors import CORS
@@ -1740,3 +1739,53 @@ def _get_instance_taginfo(instance_orthanc_id):
         return None
 
     return main_dicom_tags
+
+
+@crud.route('/get_Instance', methods=['GET'])
+@token_required()
+def get_instance():
+    try:
+        instance_id = request.args.get('oid')
+        if not instance_id:
+            return {'error': 'Instance ID is required'}, 400
+
+        orthanc_instance_url = f"{orthanc_url}/instances/{instance_id}/file"
+        
+        response = requests.get(
+            orthanc_instance_url,
+            stream=True
+        )
+        
+        if response.status_code != 200:
+            return {
+                'error': f'Failed to fetch instance from Orthanc. Status code: {response.status_code}'
+            }, response.status_code
+
+        file_path = os.path.join(r"E:\Cloud-Platform\Metaset-Quant Backend\ComfyUI\test_cache\tmp", f'instance_{instance_id}.dcm')
+
+        with open(file_path, 'wb') as f:
+            f.write(response.content)
+
+        
+        # try:
+            response = make_response(send_file(file_path, mimetype="application/dicom"))
+            return response
+        # finally:
+        #     # 在发送后清理临时文件
+        #     def cleanup():
+        #         try:
+        #             if os.path.exists(file_path):
+        #                 os.remove(file_path)
+        #         except Exception as e:
+        #             print(f"Error cleaning up temporary file: {e}")
+            
+        #     # 使用 after_this_request 确保文件被发送后再删除
+        #     @after_this_request
+        #     def remove_file(response):
+        #         cleanup()
+        #         return response
+
+    except requests.RequestException as e:
+        return {'error': f'Network error: {str(e)}'}, 500
+    except Exception as e:
+        return {'error': f'Server error: {str(e)}'}, 500

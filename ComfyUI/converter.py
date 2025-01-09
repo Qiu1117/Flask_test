@@ -16,6 +16,10 @@ from pydicom.sequence import Sequence
 from pydicom.dataelem import DataElement
 from pathlib import Path
 from pydicom.uid import RLELossless, JPEG2000Lossless
+from pydicom.dataset import FileDataset, FileMetaDataset
+from pydicom.uid import generate_uid, UID, ImplicitVRLittleEndian
+import datetime
+import os
 
 def run_file2data_converter(node, **kwargs):
     data_key = next(iter(node.inputs))  # should be only one input
@@ -183,38 +187,125 @@ def create3DFakeNIFTI(data, filepath):
     return filepath
 
 
-def create2DFakeDICOM(data, filepath):
-    '''
-        Create a fake dicom file with 2D data
-    '''
-    filepath = '.'.join([filepath, 'dcm'])
+# def create2DFakeDICOM(data, filepath):
+#     '''
+#         Create a fake dicom file with 2D data
+#     '''
+#     filepath = '.'.join([filepath, 'dcm'])
 
-    # Populate required values for file meta information
-    file_meta = dataset.FileMetaDataset()
-    file_meta.MediaStorageSOPClassUID = uid.UID('1.2.840.10008.5.1.4.1.1.4')
+#     # Populate required values for file meta information
+#     file_meta = dataset.FileMetaDataset()
+#     file_meta.MediaStorageSOPClassUID = uid.UID('1.2.840.10008.5.1.4.1.1.4')
 
 
-    # Create the FileDataset instance (initially no data elements, but file_meta
-    # supplied)
-    ds = dataset.FileDataset(filepath, {},
-                    file_meta=file_meta, preamble=b"\0" * 128)
+#     # Create the FileDataset instance (initially no data elements, but file_meta
+#     # supplied)
+#     ds = dataset.FileDataset(filepath, {},
+#                     file_meta=file_meta, preamble=b"\0" * 128)
 
-    # Write as a different transfer syntax XXX shouldn't need this but pydicom
-    # 0.9.5 bug not recognizing transfer syntax
-    ds.file_meta.TransferSyntaxUID = uid.UID('1.2.840.10008.1.2.1')
+#     # Write as a different transfer syntax XXX shouldn't need this but pydicom
+#     # 0.9.5 bug not recognizing transfer syntax
+#     ds.file_meta.TransferSyntaxUID = uid.UID('1.2.840.10008.1.2.1')
 
-    ds.PixelData = data.astype(np.uint16).tobytes()  #img[0,0].copy(order='C')
+#     ds.PixelData = data.astype(np.uint16).tobytes()  #img[0,0].copy(order='C')
     
-    ds.BitsAllocated = 16
-    ds.Rows = data.shape[0]
-    ds.Columns = data.shape[1]
-    ds.SamplesPerPixel = 1
-    ds.PhotometricInterpretation = 'MONOCHROME2'
-    ds.PixelRepresentation = 1
-    ds.BitsStored = 12
-    ds.save_as(filepath, little_endian=True, implicit_vr=False)
-    return filepath
+#     ds.BitsAllocated = 16
+#     ds.Rows = data.shape[0]
+#     ds.Columns = data.shape[1]
+#     ds.SamplesPerPixel = 1
+#     ds.PhotometricInterpretation = 'MONOCHROME2'
+#     ds.PixelRepresentation = 1
+#     ds.BitsStored = 12
+#     ds.save_as(filepath, little_endian=True, implicit_vr=False)
+#     return filepath
 
+
+def create2DFakeDICOM(data, filepath) -> str:
+    import pydicom
+    import numpy as np
+    import time
+    import os
+    
+    def generate_checksum(uid):
+        """生成UID校验和"""
+        uid_parts = uid.split(".")
+        sum_digits = [sum(int(digit) for digit in part) for part in uid_parts]
+        count_digits = [len(part) if len(part) % 9 != 0 else 9 for part in uid_parts]
+        checksum_digits = [
+            (int(sum_digit) % count_digit)
+            for sum_digit, count_digit in zip(sum_digits, count_digits)
+        ]
+        checksum = "".join(str(digit) for digit in checksum_digits)
+        return checksum[:10] if len(checksum) > 10 else checksum
+
+    def get_processing_type(image_type):
+        """获取处理类型"""
+        processing_dict = {
+            "QUANT": "1",
+            "MASK": "2",
+            "NORMAL": "3",
+            "OTHER": "4",
+        }
+
+        if len(image_type) >= 3:
+            part_three = image_type[2]
+            processing_type = "1" if part_three == "DEIDENT" else "0"
+            processing_type += processing_dict.get(image_type[3], "")
+            return processing_type
+        return ""
+
+    def generate_uid(uid, fileNum, index, image_type):
+        """生成新的UID"""
+        root_unique = "1.2.826.0.1.3680043.10.1338"
+        uid_version = ".001"
+        check_code = "." + generate_checksum(uid)
+        timestamp = "." + str(int(round(time.time() * 100)))
+        inputFileNum = "." + str(fileNum).zfill(2)
+        index = "." + str(index).zfill(2)
+        type = "." + get_processing_type(image_type)
+
+        return (
+            root_unique
+            + uid_version
+            + check_code
+            + timestamp
+            + inputFileNum
+            + index
+            + type
+        )
+
+    if not filepath.lower().endswith('.dcm'):
+        filepath = f"{filepath}.dcm"
+
+    reference_dicom = r"C:\Users\Qiuyi\Desktop\test.dcm"
+    ds = pydicom.dcmread(reference_dicom)
+    
+    image_result = data.astype(np.uint16)
+    ds.PixelData = image_result.tobytes()
+    ds.Rows, ds.Columns = image_result.shape
+
+    min_val = np.min(image_result)
+    max_val = np.max(image_result)
+    ds.WindowWidth = max_val - min_val
+    ds.WindowCenter = (max_val + min_val) / 2
+
+    ds.SamplesPerPixel = 1
+    ds.BitsAllocated = 16
+    ds.BitsStored = 16
+    ds.HighBit = 15
+    ds.RescaleIntercept = 0
+    ds.RescaleSlope = 1
+
+    # 更新UIDs
+    for tag in [(0x08, 0x18), (0x20, 0x0E), (0x20, 0x0D)]:
+        original_uid = ds[tag].value
+        image_type = ds[0x08, 0x08].value
+        new_uid = generate_uid(original_uid, 1, 1, image_type)
+        ds[tag].value = new_uid
+
+    # 保存文件
+    ds.save_as(filepath)
+    return filepath
 
 def exportNIFTI(nifti:nib.Nifti1Image, output_path):
     '''

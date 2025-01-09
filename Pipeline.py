@@ -2,8 +2,10 @@ import numpy as np
 from QMR.smooth.gaussian_blur import gaussian_blur
 import pydicom
 import logging
+import requests
 from queue import Queue
 import io
+import re
 import time
 import json
 import threading
@@ -11,13 +13,12 @@ from pathlib import Path
 from flask import request, Blueprint, jsonify, make_response,Response, stream_with_context
 import os
 from middleware import token_required
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 from QMR.MPFSL import MPFSL
 from ComfyUI.run_pipeline_latest  import DynamicPipeline
 
 
 pipeline_bp = Blueprint('pipeline', __name__)
+orthanc_url = "http://127.0.0.1:8042"
 
 
 class StreamLogHandler(logging.Handler):
@@ -33,6 +34,121 @@ class StreamLogHandler(logging.Handler):
             self.handleError(record)
 
 
+class PipelineHandler:
+    def __init__(self):
+        self.dyn_pipeline = None
+        self.log_queue = Queue()
+        self.stream_handler = None
+        self.current_node_id = None
+        
+    def run_dyn_pipeline(self, workflow, output_path, mode):
+        try:
+            self.dyn_pipeline = DynamicPipeline(json.dumps(workflow), output_path)
+            self.dyn_pipeline.execution(mode)
+        except Exception as e:
+            logging.error(f"Pipeline execution error: {e}")
+        finally:
+            self.log_queue.put(None)
+
+    def process_pipeline_message(self, msg, nodes, pipeline_id, output_path):
+        pipeline_finished = "The whole pipeline finished" in msg
+        response_data = {
+            "id": pipeline_id,
+            "pythonMsg": {"msg": msg},
+            "graphJson": []
+        }
+        
+        if "Current node" in msg and "on running" in msg:
+            try:
+                self.current_node_id = int(msg.split("node")[1].split()[0])
+                node_data = {
+                    "id": self.current_node_id,
+                    "pmtFields": {
+                        "status": "running",
+                        "outputs": []
+                    }
+                }
+                response_data["graphJson"] = [node_data]
+            except Exception as e:
+                logging.error(f"Error parsing node id: {e}")
+        
+        elif "[STEP" in msg and "OFF]" in msg and self.current_node_id is not None:
+            try:
+                node_dir = f"node_{self.current_node_id}"
+                results_path = os.path.join(output_path, node_dir, "results.json")
+                
+                node_data = {
+                    "id": self.current_node_id,
+                    "pmtFields": {
+                        "status": "done",
+                        "outputs": []  
+                    }
+                }
+
+                if os.path.exists(results_path):
+                    try:
+                        with open(results_path, 'r') as f:
+                            results = json.load(f)
+                            outputs = results.get("outputs", [])
+                            processed_outputs = process_dicom_output(outputs)
+                            node_data["pmtFields"]["outputs"] = processed_outputs
+                    except Exception as e:
+                        logging.error(f"Error reading results.json for node {self.current_node_id}: {e}")
+                
+                response_data["graphJson"] = [node_data]
+                self.current_node_id = None
+
+            except Exception as e:
+                logging.error(f"Error processing step completion: {e}")
+        
+        elif "[ERROR]" in msg:
+            try:
+                error_node_match = re.search(r"node (\d+)", msg)
+                if error_node_match:
+                    node_id = int(error_node_match.group(1))
+                    node_data = {
+                        "id": node_id,
+                        "pmtFields": {
+                            "status": "error",
+                            "error_message": msg.split("[ERROR]")[1].strip(),
+                            "outputs": []
+                        }
+                    }
+                    response_data["graphJson"] = [node_data]
+                    self.current_node_id = None  # 发生错误时也清除当前节点ID
+            except Exception as e:
+                logging.error(f"Error processing error message: {e}")
+        
+        return response_data, pipeline_finished
+
+    def generate(self, nodes, pipeline_id, pipeline_thread, output_path):
+        try:
+            while True:
+                msg = self.log_queue.get()
+                if msg is None:
+                    break
+                    
+                print("record:", msg)
+                pipeline_finished = "The whole pipeline finished" in msg
+    
+                response_data, pipeline_finished = self.process_pipeline_message(msg, nodes, pipeline_id, output_path)
+                yield json.dumps(response_data) + '\n'
+                
+                if pipeline_finished:
+                    break
+
+        except Exception as e:
+            yield json.dumps({
+                "id": pipeline_id,
+                "pythonMsg": {"msg": f"Error during execution: {str(e)}"},
+                "graphJson": []
+            }) + '\n'
+
+        finally:
+            logging.getLogger().removeHandler(self.stream_handler)
+            if pipeline_thread.is_alive():
+                pipeline_thread.join(timeout=2.0)
+
 @pipeline_bp.route('/pipelines/run-once', methods=['POST'])
 def run_pipeline():
     try:
@@ -43,102 +159,34 @@ def run_pipeline():
         mode = data.get('mode', 'complete')
         nodes = workflow.get('nodes', [])
 
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        base_path = r"E:\Cloud-Platform\Metaset-Quant Backend\ComfyUI"
+        output_path = os.path.join(base_path, 'test_cache', f'test_pipeline_{timestamp}')
+        os.makedirs(output_path, exist_ok=True)
+
         for node in nodes:
             if node['id'] == 1:  
-                if 'pmt_fields' not in node:
-                    node['pmt_fields'] = {}
-                if 'outputs' not in node['pmt_fields']:
-                    node['pmt_fields']['outputs'] = []
-                    
-                while len(node['pmt_fields']['outputs']) < 1:
-                    node['pmt_fields']['outputs'].append({})
-                    
-                node['pmt_fields']['outputs'][0].update({
-                    'oid': "5635780f-64565673-9b29cf17-d39808a3-29710ad3",
-                    'path': "E:\\Code\\PWH_Volunteer_Analysis\\Sample\\MPF\\MPF.dcm",
-                    'value': "E:\\Code\\PWH_Volunteer_Analysis\\Sample\\MPF\\MPF.dcm"
-                })
-                break
+                setup_input_node(node, output_path, orthanc_url)
 
         workflow['nodes'] = nodes
 
-        timestamp = time.strftime("%Y%m%d%H%M%S")
-        output_path = os.path.join(r"E:\Cloud-Platform\Metaset-Quant Backend", 'ComfyUI', 'test_cache', f'test_pipeline_{timestamp}')
-        log_file_path = os.path.join(output_path, "execution_log.log")
-        os.makedirs(output_path, exist_ok=True)
-
-        nodes_status = {node['id']: 'pending' for node in nodes}
-        log_queue = Queue()
-        
-        # 设置日志处理
-        stream_handler = StreamLogHandler(log_queue)
-        stream_handler.setFormatter(
+        handler = PipelineHandler()
+        handler.stream_handler = StreamLogHandler(handler.log_queue)
+        handler.stream_handler.setFormatter(
             logging.Formatter("%(asctime)s [%(levelname)s] [PIPELINE] %(message)s")
         )
-        logging.getLogger().addHandler(stream_handler)
+        logging.getLogger().addHandler(handler.stream_handler)
         logging.getLogger().setLevel(logging.INFO)
 
-        def run_dyn_pipeline():
-            try:
-                dyn_pipeline = DynamicPipeline(json.dumps(workflow), output_path)
-                dyn_pipeline.execution(mode)
-            except Exception as e:
-                logging.error(f"Pipeline execution error: {e}")
-            finally:
-                log_queue.put(None)
-
-        pipeline_thread = threading.Thread(target=run_dyn_pipeline)
+        pipeline_thread = threading.Thread(
+            target=handler.run_dyn_pipeline,
+            args=(workflow, output_path, mode)
+        )
         pipeline_thread.daemon = True
         pipeline_thread.start()
 
-        def generate():
-            try:
-                while True:
-                    msg = log_queue.get()
-                    if msg is None: 
-                        break
-                        
-                    print("record:", msg)
-                    pipeline_finished = "The whole pipeline finished" in msg
-                    
-                    # response_data = {
-                    #     "id": pipeline_id,
-                    #     "pythonMsg": {
-                    #         "msg": msg
-                    #     },
-                    #     "graphJson": [
-                    #         {
-                    #             "id": node['id'],
-                    #             "pmtFields": {
-                    #                 "status": "done",
-                    #                 # "status": nodes_status[node['id']],
-                    #                 "outputs": node.get('outputs', [])
-                    #             }
-                    #         }
-                    #         for node in nodes
-                    #     ]
-                    # }
-                    response_data, pipeline_finished = process_pipeline_message(msg, nodes, pipeline_id)
-                    yield json.dumps(response_data) + '\n'
-                    
-                    if pipeline_finished:
-                        break
-
-            except Exception as e:
-                yield json.dumps({
-                    "id": pipeline_id,
-                    "pythonMsg": {"msg": f"Error during execution: {str(e)}"},
-                    "graphJson": []
-                }) + '\n'
-
-            finally:
-                logging.getLogger().removeHandler(stream_handler)
-                if pipeline_thread.is_alive():
-                    pipeline_thread.join(timeout=2.0)
-
-
         return Response(
-            stream_with_context(generate()),
+            stream_with_context(handler.generate(nodes, pipeline_id, pipeline_thread, output_path)),
             mimetype='application/json',
             headers={
                 'Transfer-Encoding': 'chunked',
@@ -151,84 +199,6 @@ def run_pipeline():
 
     except Exception as e:
         error_msg = f"Error initializing pipeline: {str(e)}"
-        print(error_msg)
-        return {"error": error_msg}, 500
-
-@pipeline_bp.route('/pipelines/run-once-test', methods=['POST'])
-def run_pipeline1():
-    try:
-        pipeline_id = 1
-        test_path = r"E:\Cloud-Platform\Metaset-Quant Backend\ComfyUI\workflow.json"
-        with open(test_path, 'r') as f:
-            workflow = json.load(f)
-
-        def generate():
-            log_entries = [
-                {"node_id": 1, "msg": "Current Level 1, Start Processing Node 1", "status": "running"},
-                {"node_id": 1, "msg": "Current node 1 on running", "status": "running"},
-                {"node_id": 1, "msg": "Finished Node 1", "status": "done"},
-                
-                {"node_id": 2, "msg": "Current Level 2, Start Processing Node 2", "status": "running"},
-                {"node_id": 2, "msg": "Current node 2 on running", "status": "running"},
-                {"node_id": 2, "msg": "Successfully saved data", "status": "done"},
-                
-                {"node_id": 3, "msg": "Current Level 3, Start Processing Node 3", "status": "running"},
-                {"node_id": 3, "msg": "Successfully saved cache data", "status": "done"},
-                
-                {"node_id": 4, "msg": "Current Level 4, Start Processing Node 4", "status": "running"},
-                {"node_id": 4, "msg": "Successfully saved data", "status": "done"}
-            ]
-
-            for entry in log_entries:
-                node = next((n for n in workflow['nodes'] if n['id'] == entry['node_id']), None)
-                if node:
-                    chunk = {
-                        "id": pipeline_id,
-                        "pythonMsg": {
-                            "msg": entry['msg']
-                        },
-                        "graphJson": [{
-                            "id": entry['node_id'],
-                            "pmtFields": {
-                                "status": entry['status'],
-                                "outputs": [
-                                    {
-                                        "name": output.get("name"),
-                                        "type": output.get("type"),
-                                        "oid": output.get("oid"),
-                                        "path": output.get("path"),
-                                        "value": output.get("value")
-                                    }
-                                    for output in node['pmt_fields']['outputs']
-                                ]
-                            }
-                        }]
-                    }
-                    # 每个chunk以换行符结尾，方便前端解析
-                    yield json.dumps(chunk) + '\n'
-                    time.sleep(0.5)  # 模拟处理时间
-
-            # 发送完成消息
-            yield json.dumps({
-                "id": pipeline_id,
-                "pythonMsg": {"msg": "Pipeline execution completed"},
-                "graphJson": []
-            }) + '\n'
-
-        return Response(
-            stream_with_context(generate()),
-            mimetype='application/json',
-            headers={
-                'Transfer-Encoding': 'chunked',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
-                'Access-Control-Allow-Origin': '*',
-                'X-Accel-Buffering': 'no'
-            }
-        )
-
-    except Exception as e:
-        error_msg = f"Error in pipeline execution: {str(e)}"
         print(error_msg)
         return {"error": error_msg}, 500
 
@@ -276,53 +246,78 @@ def reset_node(node_id):
         return {"error": str(e)}, 500
     
 
+def setup_input_node(node, output_path, orthanc_url):
+    if node['id'] == 1:
+        if 'pmt_fields' not in node:
+            node['pmt_fields'] = {}
+        if 'outputs' not in node['pmt_fields']:
+            node['pmt_fields']['outputs'] = []
+            
+        while len(node['pmt_fields']['outputs']) < 1:
+            node['pmt_fields']['outputs'].append({})
+            
+        instance_id = node.get('widgets_values', [''])[0]
+        if not instance_id:
+            raise ValueError("No instance ID provided in widgets_values")
+            
+        try:
+            input_dir = os.path.join(output_path, "input")
+            os.makedirs(input_dir, exist_ok=True)
+            
+            instance_url = f"{orthanc_url}/instances/{instance_id}/file"
+            file_path = os.path.join(input_dir, f"instance_{instance_id}.dcm")
+            
+            response = requests.get(instance_url)
+            response.raise_for_status()  
+            
+            with open(file_path, "wb") as file:
+                file.write(response.content)
+            
+            node['pmt_fields']['outputs'][0].update({
+                'oid': instance_id,
+                'path': file_path,
+                'value': file_path
+            })
+            
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to download file from Orthanc: {str(e)}")
+        except IOError as e:
+            raise Exception(f"Failed to save file: {str(e)}")
 
 
-def process_pipeline_message(msg, nodes, pipeline_id):
-    try:
-        pipeline_msg = msg.split("[PIPELINE]")[1].strip()
-    except IndexError:
-        return None, False
+def process_dicom_output(outputs, orthanc_url="http://127.0.0.1:8042"):
+    processed_outputs = []
     
-    node_status = {node['id']: node['pmt_fields'].get('status', 'pending') for node in nodes}
-    
-    if "[STEP" in msg:
-        if "Current node" in msg:
-            node_id = int(msg.split("node")[1].split()[0])
-            node_status[node_id] = 'current'
-            for nid in node_status:
-                if nid != node_id and node_status[nid] == 'current':
-                    node_status[nid] = 'done'
-    
-    elif "[ERROR]" in msg:
-        if "node" in msg:
+    for output in outputs:
+        output_copy = output.copy()
+        
+        if output.get('output_type') == 'DICOM_FILE':
             try:
-                node_id = int(msg.split("node")[1].split()[0])
-                node_status[node_id] = 'error'
-            except:
-                pass
-    
-    pipeline_finished = "The whole pipeline finished" in msg
-    if pipeline_finished:
-        for nid in node_status:
-            if node_status[nid] != 'error':
-                node_status[nid] = 'done'
+                dcm = pydicom.dcmread(output['output_path'])
+                instance_uid = dcm.SOPInstanceUID
+                
+                with open(output['output_path'], 'rb') as f:
+                    dicom_content = f.read()
+                
+                headers = {'Content-Type': 'application/dicom'}
+                response = requests.post(
+                    f"{orthanc_url}/instances", 
+                    data=dicom_content,
+                    headers=headers
+                )
+                response.raise_for_status()
+                
+                orthanc_id = response.json()['ID']
+                
+                output_copy['oid'] = orthanc_id
+                output_copy['instanceUid'] = instance_uid
+                
+            except Exception as e:
+                logging.error(f"Error processing DICOM: {str(e)}")
+                output_copy['message'] = f"Error processing DICOM: {str(e)}"
+        
+        processed_outputs.append(output_copy)
 
-    response_data = {
-        "id": pipeline_id,
-        "pythonMsg": {
-            "msg": pipeline_msg
-        },
-        "graphJson": [
-            {
-                "id": node['id'],
-                "pmtFields": {
-                    "status": node_status[node['id']],
-                    "outputs": node.get('outputs', [])
-                }
-            }
-            for node in nodes
-        ]
-    }
-    
-    return response_data, pipeline_finished
+    return processed_outputs
+
+
