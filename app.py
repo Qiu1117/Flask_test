@@ -28,13 +28,26 @@ with app.app_context():
 
 # app.secret_key = "cuhkdiir"
 
-UPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads"
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+MPFUPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, "mpf")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(MPFUPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-MPFUPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads\mpf"
 app.config["MPFUPLOAD_FOLDER"] = MPFUPLOAD_FOLDER
 
 orthanc_url = "http://127.0.0.1:8042"
+orthanc_username = "orthanc"
+orthanc_password = "orthanc"
+
+def orthanc_request(method, endpoint, **kwargs):
+    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
+    auth = (orthanc_username, orthanc_password)
+    
+    # 如果没有指定auth参数，添加默认认证
+    if 'auth' not in kwargs:
+        kwargs['auth'] = auth
+        
+    return requests.request(method, url, **kwargs)
 
 
 # ---------------------------------------数据管理--------------------------
@@ -46,7 +59,12 @@ def get_file(url_path):
     print(url_path)
     orthanc_backend = "http://localhost:8042/dicom-web"
     file_url = f"{orthanc_backend}/{url_path}"
-    response = requests.get(file_url)
+    
+    # 使用认证信息请求Orthanc
+    response = requests.get(
+        file_url,
+        auth=(orthanc_username, orthanc_password)
+    )
 
     return response.content
 

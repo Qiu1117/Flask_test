@@ -19,6 +19,17 @@ from ComfyUI.run_pipeline_latest  import DynamicPipeline
 
 pipeline_bp = Blueprint('pipeline', __name__)
 orthanc_url = "http://127.0.0.1:8042"
+orthanc_username = "orthanc"
+orthanc_password = "orthanc"
+
+def orthanc_request(method, endpoint, **kwargs):
+    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
+    auth = (orthanc_username, orthanc_password)
+    
+    if 'auth' not in kwargs:
+        kwargs['auth'] = auth
+        
+    return requests.request(method, url, **kwargs)
 
 
 class StreamLogHandler(logging.Handler):
@@ -264,10 +275,10 @@ def setup_input_node(node, output_path, orthanc_url):
             input_dir = os.path.join(output_path, "input")
             os.makedirs(input_dir, exist_ok=True)
             
-            instance_url = f"{orthanc_url}/instances/{instance_id}/file"
+            instance_url = f"instances/{instance_id}/file"
             file_path = os.path.join(input_dir, f"instance_{instance_id}.dcm")
             
-            response = requests.get(instance_url)
+            response = orthanc_request("GET", instance_url)
             response.raise_for_status()  
             
             with open(file_path, "wb") as file:
@@ -303,7 +314,8 @@ def process_dicom_output(outputs, orthanc_url="http://127.0.0.1:8042"):
                 response = requests.post(
                     f"{orthanc_url}/instances", 
                     data=dicom_content,
-                    headers=headers
+                    headers=headers,
+                    auth=(orthanc_username, orthanc_password) 
                 )
                 response.raise_for_status()
                 

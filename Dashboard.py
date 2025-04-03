@@ -36,6 +36,19 @@ import pydicom
 
 dashboard = Blueprint("dashboard", __name__)
 orthanc_url = "http://127.0.0.1:8042"
+orthanc_username = "orthanc"
+orthanc_password = "orthanc"
+
+
+def orthanc_request(method, endpoint, **kwargs):
+    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
+    auth = (orthanc_username, orthanc_password)
+    
+    # 如果没有指定auth参数，添加默认认证
+    if 'auth' not in kwargs:
+        kwargs['auth'] = auth
+        
+    return requests.request(method, url, **kwargs)
 
 
 # ------------------------------------------ Card Info --------------------------------------
@@ -69,10 +82,11 @@ def get_instance_count():
     return db.session.query(func.count(Dataset_Instances.instance_orthanc_id.distinct())).scalar()
 
 
+
 @dashboard.route("/dashboard_orthancinfo_card", methods=["GET"])
 @token_required()
 def get_orthanc_stats():
-    response = requests.get(f"{orthanc_url}/statistics")
+    response = orthanc_request("GET", "statistics")
 
     if response.status_code == 200:
         orthanc_stats = response.json()

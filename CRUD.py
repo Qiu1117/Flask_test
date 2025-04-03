@@ -38,6 +38,19 @@ import pydicom
 
 crud = Blueprint("crud", __name__)
 orthanc_url = "http://127.0.0.1:8042"
+orthanc_username = "orthanc"
+orthanc_password = "orthanc"
+
+# 通用Orthanc请求函数
+def orthanc_request(method, endpoint, **kwargs):
+    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
+    auth = (orthanc_username, orthanc_password)
+    
+    # 如果没有指定auth参数，添加默认认证
+    if 'auth' not in kwargs:
+        kwargs['auth'] = auth
+        
+    return requests.request(method, url, **kwargs)
 
 
 # ------------------------------------------ Notification --------------------------------------
@@ -613,9 +626,7 @@ def get_accounts():
     return jsonify({"status": "ok", "data": data})
 
 
-@crud.route(
-    "/get_account_info", methods=["GET"]
-)  # use when search users like github invitation
+@crud.route("/get_account_info", methods=["GET"])
 @token_required()
 def get_account_info():
     account_id = request.args["account_id"]
@@ -624,17 +635,12 @@ def get_account_info():
 
 
 def get_account_info(account_id, fetch_type=["account", "notification"]):
-    """
-    fetch_type: list, which include the following enum, order does not matter
-        - account: basic account info w/o notification
-        - notification: notification of this account
-        - group: group which the account belong to, include the permission
-        - dataset: dataset the account can access
-    """
     user = Account.query.filter_by(id=account_id).first()
     if user is None:
         abort(404, description="Group not found")
 
+    infos = {}  
+    
     if "account" in fetch_type or fetch_type == []:
         infos = {
             "account": {
@@ -666,13 +672,12 @@ def get_account_info(account_id, fetch_type=["account", "notification"]):
                 }
             )
 
-    # dataset info
     if "dataset" in fetch_type:
         if "group" in fetch_type:  # can save SQL time
             valid_groups = [
-                g.id
-                for a_g in acc_groups
-                if a_g.belongs_group.valid and a_g.status == 1
+                g.group_id
+                for g in acc_groups
+                if g.belongs_group.valid and g.status == 0
             ]
 
             datasets = (
@@ -688,7 +693,7 @@ def get_account_info(account_id, fetch_type=["account", "notification"]):
             )
             infos["dataset"] = []
             for dataset, dataset_group in datasets:
-                owner = 1 if account_id == dataset.owner else 0
+                owner = 1 if str(account_id) == str(dataset.owner) else 0
                 if owner:
                     infos["dataset"].append(
                         {
@@ -703,12 +708,18 @@ def get_account_info(account_id, fetch_type=["account", "notification"]):
                         }
                     )
                 else:
+                    group_name = None
+                    editable = None
+                    can_upload_dataset = None
+                    group_owner = None
+                    
                     for gr in infos["group"]:
-                        if g["group_id"] == dataset_group.group_id:
+                        if gr["group_id"] == dataset_group.group_id:
                             group_name = gr["group_name"]
                             editable = gr["editable"]
                             can_upload_dataset = gr["can_upload_dataset"]
-                            group_owner = gr["is_owner"]
+                            group_owner = gr["owner"]
+                            
                     infos["dataset"].append(
                         {
                             "dataset_id": dataset.id,
@@ -724,7 +735,6 @@ def get_account_info(account_id, fetch_type=["account", "notification"]):
         else:
             infos["dataset"] = _get_accessible_datasets_from_account(account_id)
     return infos
-
 
 @crud.route("/exit_group", methods=["POST"])  # user exit group
 @token_required()
@@ -1155,28 +1165,51 @@ def upload():
 
 
 def _upload_orthanc(file):
-    upload_url = f"{orthanc_url}/instances"  # Orthanc的URL
+    upload_url = f"{orthanc_url}/instances"
     if not file or not file.filename:
         return "Empty filename."
-    file_data = file.stream.read()
+    
+    current_position = file.stream.tell()
+        
+    file.stream.seek(0)
+    dicom_data = pydicom.dcmread(file.stream)
+    
+    if hasattr(dicom_data, 'SeriesDescription') and dicom_data.SeriesDescription == "DEFAULT PS SERIES":
+        file.stream.seek(current_position)
+        return {"status": "ignored", "message": "File ignored: SeriesDescription is 'DEFAULT PS SERIES'"}
+    
+    file.stream.seek(0)
+    
+    username = "orthanc"
+    password = "orthanc"
+    headers = {"Content-Type": "application/dicom"}
+    
     response = requests.post(
-        upload_url, data=file_data, headers={"Content-Type": "application/dicom"}
+        upload_url, 
+        data=file.stream,
+        headers=headers,
+        auth=(username, password) if username and password else None
     )
-        # print(response)
+    
+    file.stream.seek(0)
     return response
 
 
 def _new_patient_pair(orthanc_data, Dataset_ID):
     patient_orthanc_ID = orthanc_data["ParentPatient"]
 
-    patient_tags_url = f"{orthanc_url}/patients/{patient_orthanc_ID}/shared-tags?simplify"
-    response = requests.get(patient_tags_url)
-    # patient_info = json.loads(response.content)
-    shared_tags = response.json()
+    patient_tags_url = f"patients/{patient_orthanc_ID}/shared-tags?simplify"
+    response = orthanc_request("GET", patient_tags_url)
+    
+    # 添加错误处理
+    if response.status_code != 200:
+        print(f"Error getting patient data: {response.status_code}, {response.text}")
+        shared_tags = {}
+    else:
+        shared_tags = response.json()
 
     patient = Patient.query.filter_by(patient_orthanc_id=patient_orthanc_ID).first()
     if patient is None:
-        # main_dicom_tags = patient_info.get("MainDicomTags", {})
         new_patient = Patient(
             patient_orthanc_id = patient_orthanc_ID,
             patient_id = shared_tags.get("PatientID", ""),
@@ -1233,9 +1266,14 @@ def _new_study_pair(orthanc_data, Dataset_ID):
 def _new_study(orthanc_data):
     study_orthanc_id = orthanc_data["ParentStudy"]
 
-    study_tags_url = f"{orthanc_url}/studies/{study_orthanc_id}"
-    response = requests.get(study_tags_url)
-    study_info = json.loads(response.content)
+    study_tags_url = f"studies/{study_orthanc_id}"
+    response = orthanc_request("GET", study_tags_url)
+    
+    if response.status_code != 200:
+        print(f"Error getting study data: {response.status_code}, {response.text}")
+        study_info = {"MainDicomTags": {}}
+    else:
+        study_info = response.json()
 
     main_dicom_tags = study_info.get("MainDicomTags", {})
     new_study = Study(
@@ -1296,9 +1334,14 @@ def _new_series_pair(orthanc_data, Dataset_ID):
 def _new_series(orthanc_data):
     series_orthanc_id = orthanc_data["ParentSeries"]
 
-    series_tags_url = f"{orthanc_url}/series/{series_orthanc_id}"
-    response = requests.get(series_tags_url)
-    series_info = json.loads(response.content)
+    series_tags_url = f"series/{series_orthanc_id}"
+    response = orthanc_request("GET", series_tags_url)
+    
+    if response.status_code != 200:
+        print(f"Error getting series data: {response.status_code}, {response.text}")
+        series_info = {"MainDicomTags": {}}
+    else:
+        series_info = response.json()
 
     main_dicom_tags = series_info.get("MainDicomTags", {})
     def safe_int(value):
@@ -1361,22 +1404,18 @@ def _new_instance_pair(orthanc_data):
 @crud.route("/view_patient_by_dataset", methods=["GET"])
 @token_required()
 def search_Patient():
-
     dataset_id = request.args['dataset_id']
 
     dataset_patients = Dataset_Patients.query.filter(
         Dataset_Patients.dataset_id == dataset_id
     ).all()
-    if dataset_patients is None:
+    if not dataset_patients: 
         abort(404, description="No patient was found")
 
     patient_list = []
     for patient in dataset_patients:
         if (patient.valid):
             patient_list.append(patient.patient_orthanc_id)
-
-    # patient_orthanc_ids = Patient.query.filter(Patient.valid == True).all()
-    # patient_list = [p.patient_orthanc_id for p in patient_orthanc_ids]
 
     patients = Patient.query.filter(Patient.patient_orthanc_id.in_(patient_list)).all()
     patient_dict = []
@@ -1404,7 +1443,7 @@ def search_study():
             Dataset_Studies.dataset_id == dataset_id,
         )
     ).all()
-    if study_pair is None:
+    if not study_pair: 
         abort(404, description="No study was found")
 
     study_dict = []
@@ -1416,19 +1455,22 @@ def search_study():
     return jsonify(study_dict)
 
 def _get_study_info(study_orthanc_id):
-    Study_url = f"{orthanc_url}/studies/{study_orthanc_id}?=short"
-
-    response = requests.get(Study_url)
+    Study_url = f"studies/{study_orthanc_id}?=short"
+    
+    # 初始化 study_dict 变量，确保它总是被定义
+    study_dict = {
+        "StudyDescription": "",
+        "StudyDate": "",
+        "study_orthanc_id": study_orthanc_id,
+        "StudyInstanceUID": "",
+        "AccessionNumber": "",
+    }
+    
+    response = orthanc_request("GET", Study_url)
 
     if response.status_code == 200:
-
         studies_info = response.json()
         main_dicom_tags = studies_info.get("MainDicomTags", {})
-
-        # study_Description = studies_info["MainDicomTags"]["StudyDescription"]
-        # study_Date = studies_info["MainDicomTags"]["StudyDate"]
-        # study_InstanceUID = studies_info["MainDicomTags"]["StudyInstanceUID"]
-        # study_Accessnumber = studies_info["MainDicomTags"]["AccessionNumber"]
 
         study_dict = {
             "StudyDescription": main_dicom_tags.get("StudyDescription", ""),
@@ -1437,7 +1479,7 @@ def _get_study_info(study_orthanc_id):
             "StudyInstanceUID": main_dicom_tags.get("StudyInstanceUID", ""),
             "AccessionNumber": main_dicom_tags.get("AccessionNumber", ""),
         }
-
+    
     return study_dict
 
 
@@ -1456,7 +1498,7 @@ def search_series():
             Dataset_Series.dataset_id == dataset_id,
         )
     ).all()
-    if series_pair is None:
+    if not series_pair:
         abort(404, description="No series was found")
 
     series_dict = []
@@ -1467,16 +1509,20 @@ def search_series():
     return jsonify(series_dict)
 
 def _get_series_info(series_orthanc_id):
-
-    serie_url = f"{orthanc_url}/series/{series_orthanc_id}?=short"
-    series_response = requests.get(serie_url)
+    serie_url = f"series/{series_orthanc_id}?=short"
+    
+    series_dict = {
+        "series_orthanc_id": series_orthanc_id,
+        "Modality": "",
+        "SeriesNumber": "",
+        "SeriesInstanceUID": "",
+        "ProtocolName": ""
+    }
+    
+    series_response = orthanc_request("GET", serie_url)
     if series_response.status_code == 200:
         series_info = series_response.json()
         main_dicom_tags = series_info.get("MainDicomTags", {})
-        # series_Modality = series_info["MainDicomTags"]["Modality"]
-        # series_SeriesInstanceUID = series_info["MainDicomTags"]["SeriesInstanceUID"]
-        # series_SeriesNumber = series_info["MainDicomTags"]["SeriesNumber"]
-        # series_ProtocolName = series_info["MainDicomTags"]["ProtocolName"]
 
         series_dict = {
             "series_orthanc_id": series_orthanc_id,
@@ -1498,7 +1544,7 @@ def search_instances():
     instance_pair = Dataset_Instances.query.filter(
         Dataset_Instances.series_orthanc_id == series_orthanc_id
     ).all()
-    if instance_pair is None:
+    if not instance_pair:
         abort(404, description="No instance was found")
 
     instance_dict = []
@@ -1511,15 +1557,19 @@ def search_instances():
 
 
 def _get_instance_info(instance_orthanc_id):
-
-    instance_url = f"{orthanc_url}/instances/{instance_orthanc_id}?=short"
-    instance_response = requests.get(instance_url)
+    instance_url = f"instances/{instance_orthanc_id}?=short"
+    
+    instance_dict = {
+        "instance_orthanc_id": instance_orthanc_id,
+        "SOPInstanceUID": ""
+    }
+    
+    instance_response = orthanc_request("GET", instance_url)
     if instance_response.status_code == 200:
         instance_info = instance_response.json()
-
         instance_dict = {
             "instance_orthanc_id": instance_orthanc_id,
-            "SOPInstanceUID": instance_info["MainDicomTags"]["SOPInstanceUID"],
+            "SOPInstanceUID": instance_info["MainDicomTags"].get("SOPInstanceUID", ""),
         }
 
     return instance_dict
@@ -1677,66 +1727,58 @@ def get_parent_class(child_class):
 
 @crud.route("/get_maintag_info", methods=["GET"])
 def get_maintag_info():
-
     Orthanc_id = request.args["id"]
     info_class = request.args["class"]
     
+    result_dict = None
     if info_class == "Study":
-        result_dict =  _get_study_taginfo(Orthanc_id)
+        result_dict = _get_study_taginfo(Orthanc_id)
     elif info_class == "Series":
-        result_dict =  _get_series_taginfo(Orthanc_id)
+        result_dict = _get_series_taginfo(Orthanc_id)
     elif info_class == "Instances":
-        result_dict =  _get_instance_taginfo(Orthanc_id)
+        result_dict = _get_instance_taginfo(Orthanc_id)
     else:
         abort(400, description="Invalid 'class' parameter")
 
     if result_dict is None:
         abort(404, description=f"No data found for {info_class} with ID {Orthanc_id}")
 
-
-    return result_dict
+    return jsonify(result_dict)
 
 
 def _get_study_taginfo(study_orthanc_id):
-    Study_url = f"{orthanc_url}/studies/{study_orthanc_id}?=full"
+    Study_url = f"studies/{study_orthanc_id}?=full"
 
-    response = requests.get(Study_url)
-
+    main_dicom_tags = {}
+    
+    response = orthanc_request("GET", Study_url)
     if response.status_code == 200:
-
         studies_info = response.json()
         main_dicom_tags = studies_info.get("MainDicomTags", {})
-
-    else:
-        return None
 
     return main_dicom_tags
 
 
 def _get_series_taginfo(series_orthanc_id):
-
-    serie_url = f"{orthanc_url}/series/{series_orthanc_id}?=full"
-    series_response = requests.get(serie_url)
+    serie_url = f"series/{series_orthanc_id}?=full"
+    main_dicom_tags = {}
+    
+    series_response = orthanc_request("GET", serie_url)
     if series_response.status_code == 200:
         series_info = series_response.json()
         main_dicom_tags = series_info.get("MainDicomTags", {})
-
-    else:
-        return None
 
     return main_dicom_tags
 
 
 def _get_instance_taginfo(instance_orthanc_id):
-
-    instance_url = f"{orthanc_url}/instances/{instance_orthanc_id}?=full"
-    instance_response = requests.get(instance_url)
+    instance_url = f"instances/{instance_orthanc_id}?=full"
+    main_dicom_tags = {}
+    
+    instance_response = orthanc_request("GET", instance_url)
     if instance_response.status_code == 200:
         instance_info = instance_response.json()
         main_dicom_tags = instance_info.get("MainDicomTags", {})
-
-    else:
-        return None
 
     return main_dicom_tags
 
@@ -1747,45 +1789,30 @@ def get_instance():
     try:
         instance_id = request.args.get('oid')
         if not instance_id:
-            return {'error': 'Instance ID is required'}, 400
+            return jsonify({'error': 'Instance ID is required'}), 400
 
-        orthanc_instance_url = f"{orthanc_url}/instances/{instance_id}/file"
+        orthanc_instance_url = f"instances/{instance_id}/file"
         
-        response = requests.get(
-            orthanc_instance_url,
-            stream=True
-        )
+        response = orthanc_request("GET", orthanc_instance_url, stream=True)
         
         if response.status_code != 200:
-            return {
+            return jsonify({
                 'error': f'Failed to fetch instance from Orthanc. Status code: {response.status_code}'
-            }, response.status_code
+            }), response.status_code
 
-        file_path = os.path.join(r"E:\Cloud-Platform\Metaset-Quant Backend\ComfyUI\test_cache\tmp", f'instance_{instance_id}.dcm')
+        # 创建临时目录（如果不存在）
+        temp_dir = os.path.join("tmp")
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        file_path = os.path.join(temp_dir, f'instance_{instance_id}.dcm')
 
         with open(file_path, 'wb') as f:
             f.write(response.content)
-
         
-        # try:
-            response = make_response(send_file(file_path, mimetype="application/dicom"))
-            return response
-        # finally:
-        #     # 在发送后清理临时文件
-        #     def cleanup():
-        #         try:
-        #             if os.path.exists(file_path):
-        #                 os.remove(file_path)
-        #         except Exception as e:
-        #             print(f"Error cleaning up temporary file: {e}")
-            
-        #     # 使用 after_this_request 确保文件被发送后再删除
-        #     @after_this_request
-        #     def remove_file(response):
-        #         cleanup()
-        #         return response
+        response = make_response(send_file(file_path, mimetype="application/dicom"))
+        return response
 
     except requests.RequestException as e:
-        return {'error': f'Network error: {str(e)}'}, 500
+        return jsonify({'error': f'Network error: {str(e)}'}), 500
     except Exception as e:
-        return {'error': f'Server error: {str(e)}'}, 500
+        return jsonify({'error': f'Server error: {str(e)}'}), 500

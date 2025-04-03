@@ -37,6 +37,18 @@ import pydicom
 
 retrieve = Blueprint("retrieve", __name__)
 orthanc_url = "http://127.0.0.1:8042"
+orthanc_username = "orthanc"
+orthanc_password = "orthanc"
+
+
+def orthanc_request(method, endpoint, **kwargs):
+    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
+    auth = (orthanc_username, orthanc_password)
+    
+    if 'auth' not in kwargs:
+        kwargs['auth'] = auth
+        
+    return requests.request(method, url, **kwargs)
 
 
 # ------------------------------------------ Notification --------------------------------------
@@ -45,7 +57,7 @@ orthanc_url = "http://127.0.0.1:8042"
 def retrieve_data():
     content = request.get_json()
 
-    orthanc_find_url = f"{orthanc_url}/tools/find"
+    orthanc_find_url = "tools/find"
 
     orthanc_content = {
         "Level": content["level"],
@@ -64,7 +76,7 @@ def retrieve_data():
 
 
     try:
-        response = requests.post(orthanc_find_url, json=orthanc_content)
+        response = orthanc_request("POST", orthanc_find_url, json=orthanc_content)
         response.raise_for_status()
 
         return jsonify(response.json()), response.status_code

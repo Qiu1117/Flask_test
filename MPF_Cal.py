@@ -31,9 +31,25 @@ from QMR.MPFSL import MPFSL
 
 mpf = Blueprint("mpf", __name__)
 
-UPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads"
-MPFUPLOAD_FOLDER = r"C:\Users\Qiuyi\Desktop\uploads\mpf"
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+MPFUPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, "mpf")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(MPFUPLOAD_FOLDER, exist_ok=True)
+
 orthanc_url = "http://127.0.0.1:8042"
+orthanc_username = "orthanc"
+orthanc_password = "orthanc"
+
+
+def orthanc_request(method, endpoint, **kwargs):
+    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
+    auth = (orthanc_username, orthanc_password)
+    
+    # 如果没有指定auth参数，添加默认认证
+    if 'auth' not in kwargs:
+        kwargs['auth'] = auth
+        
+    return requests.request(method, url, **kwargs)
 
 
 def QMR_Cal(realctr, ictr, tsl, B1_path, dict_path):
@@ -205,7 +221,10 @@ def process_and_upload_file(
         file = f.read()
     upload_url = f"{orthanc_url}/instances"
     response = requests.post(
-        upload_url, data=file, headers={"Content-Type": "application/dicom"}
+        upload_url, 
+        data=file, 
+        headers={"Content-Type": "application/dicom"},
+        auth=(orthanc_username, orthanc_password)  # 添加认证
     )
     orthanc_data = json.loads(response.content)
 
@@ -269,7 +288,7 @@ def MPF_cal():
 
         if item1:
             Instance_url1 = f"{orthanc_url}/instances/{item1}/file"
-            response1 = requests.get(Instance_url1)
+            response1 = requests.get(Instance_url1, auth=(orthanc_username, orthanc_password))
             file_path1 = os.path.join(UPLOAD_FOLDER, f"instance_{item1}.dcm")
             with open(file_path1, "wb") as file1:
                 file1.write(response1.content)
@@ -281,7 +300,7 @@ def MPF_cal():
 
         if item2:
             Instance_url2 = f"{orthanc_url}/instances/{item2}/file"
-            response2 = requests.get(Instance_url2)
+            response2 = requests.get(Instance_url2, auth=(orthanc_username, orthanc_password))
             file_path2 = os.path.join(UPLOAD_FOLDER, f"instance_{item2}.dcm")
             with open(file_path2, "wb") as file2:
                 file2.write(response2.content)
@@ -325,7 +344,7 @@ def retrieve_QMR_file():
 
     if (Orthanc_Id):
         dicom_url = f"{orthanc_url}/instances/{Orthanc_Id}/file"
-        response = requests.get(dicom_url)
+        response = requests.get(dicom_url, auth=(orthanc_username, orthanc_password))
 
         if response.status_code != 200:
             abort(response.status_code, description="Failed to retrieve DICOM from Orthanc")
