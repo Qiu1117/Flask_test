@@ -1,8 +1,6 @@
-# %% base import
 import numpy as np
 from QMR.smooth.gaussian_blur import gaussian_blur
 import pydicom
-import io
 import time
 import json
 import requests
@@ -13,21 +11,13 @@ from middleware import token_required
 from datetime import datetime
 from CRUD import _upload_orthanc, _new_study_pair, _new_series_pair, _new_instance_pair
 from db_models import (
-    db,
-    Account,
-    Group,
-    Acc_Group,
-    Dataset_Group,
-    Dataset,
-    Patient,
-    Dataset_Patients,
     Dataset_Studies,
     Dataset_Series,
     Dataset_Instances,
 )
-from sqlalchemy import update, text, func, and_, or_
+from sqlalchemy import and_
 from QMR.MPFSL import MPFSL
-
+import config
 
 mpf = Blueprint("mpf", __name__)
 
@@ -36,14 +26,11 @@ MPFUPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, "mpf")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(MPFUPLOAD_FOLDER, exist_ok=True)
 
-orthanc_url = "http://127.0.0.1:8042"
-orthanc_username = "orthanc"
-orthanc_password = "orthanc"
 
 
 def orthanc_request(method, endpoint, **kwargs):
-    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
-    auth = (orthanc_username, orthanc_password)
+    url = f"{config.ORTHANC_URL}/{endpoint.lstrip('/')}"
+    auth = (config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
     
     # 如果没有指定auth参数，添加默认认证
     if 'auth' not in kwargs:
@@ -219,12 +206,12 @@ def process_and_upload_file(
 
     with open(output_dicom_path, "rb") as f:
         file = f.read()
-    upload_url = f"{orthanc_url}/instances"
+    upload_url = f"{config.ORTHANC_URL}/instances"
     response = requests.post(
         upload_url, 
         data=file, 
         headers={"Content-Type": "application/dicom"},
-        auth=(orthanc_username, orthanc_password)  # 添加认证
+        auth=(config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)  # 添加认证
     )
     orthanc_data = json.loads(response.content)
 
@@ -287,8 +274,8 @@ def MPF_cal():
         item2 = file_list[i + 1] if i + 1 < len(file_list) else None
 
         if item1:
-            Instance_url1 = f"{orthanc_url}/instances/{item1}/file"
-            response1 = requests.get(Instance_url1, auth=(orthanc_username, orthanc_password))
+            Instance_url1 = f"{config.ORTHANC_URL}/instances/{item1}/file"
+            response1 = requests.get(Instance_url1, auth=(config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD))
             file_path1 = os.path.join(UPLOAD_FOLDER, f"instance_{item1}.dcm")
             with open(file_path1, "wb") as file1:
                 file1.write(response1.content)
@@ -299,8 +286,8 @@ def MPF_cal():
                 ictr.append(file_path1)
 
         if item2:
-            Instance_url2 = f"{orthanc_url}/instances/{item2}/file"
-            response2 = requests.get(Instance_url2, auth=(orthanc_username, orthanc_password))
+            Instance_url2 = f"{config.ORTHANC_URL}/instances/{item2}/file"
+            response2 = requests.get(Instance_url2, auth=(config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD))
             file_path2 = os.path.join(UPLOAD_FOLDER, f"instance_{item2}.dcm")
             with open(file_path2, "wb") as file2:
                 file2.write(response2.content)
@@ -322,11 +309,11 @@ def MPF_cal():
     new_study_uid = generate_uid(original_study_uid, 1, 1, imageType)
 
     rmpf_dicom_path, rmpf_orthanc_id = process_and_upload_file(
-        realctr, rmpf, "Rmpfsl", UPLOAD_FOLDER, orthanc_url, Dataset_ID, new_study_uid
+        realctr, rmpf, "Rmpfsl", UPLOAD_FOLDER, config.ORTHANC_URL, Dataset_ID, new_study_uid
     )
 
     mpf_dicom_path, mpf_orthanc_id = process_and_upload_file(
-        realctr, mpf, "MPF", UPLOAD_FOLDER, orthanc_url, Dataset_ID, new_study_uid
+        realctr, mpf, "MPF", UPLOAD_FOLDER, config.ORTHANC_URL, Dataset_ID, new_study_uid
     )
 
     response = make_response(send_file(mpf_dicom_path, mimetype="application/dicom"))
@@ -343,8 +330,8 @@ def retrieve_QMR_file():
     Orthanc_Id = request.args.get("Orthanc_Id")
 
     if (Orthanc_Id):
-        dicom_url = f"{orthanc_url}/instances/{Orthanc_Id}/file"
-        response = requests.get(dicom_url, auth=(orthanc_username, orthanc_password))
+        dicom_url = f"{config.ORTHANC_URL}/instances/{Orthanc_Id}/file"
+        response = requests.get(dicom_url, auth=(config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD))
 
         if response.status_code != 200:
             abort(response.status_code, description="Failed to retrieve DICOM from Orthanc")

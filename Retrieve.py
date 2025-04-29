@@ -1,49 +1,26 @@
 from flask import (
-    Flask,
     jsonify,
     request,
-    Response,
-    stream_with_context,
     Blueprint,
-    abort,
 )
-import time
-import sqlite3
 from middleware import token_required, permission_check
-import json
-import shortuuid
 from flask import g
-from flask_cors import CORS
-from collections import defaultdict
 from db_models import (
-    db,
-    Account,
-    Group,
-    Acc_Group,
-    Dataset_Group,
-    Dataset,
-    Patient,
     Dataset_Patients,
     Dataset_Studies,
     Dataset_Series,
     Dataset_Instances,
 )
-from sqlalchemy.types import Unicode
-from sqlalchemy import update, text, func, and_, or_
-import sqlalchemy
 import requests
-import pydicom
+import config
 
 
 retrieve = Blueprint("retrieve", __name__)
-orthanc_url = "http://127.0.0.1:8042"
-orthanc_username = "orthanc"
-orthanc_password = "orthanc"
 
 
 def orthanc_request(method, endpoint, **kwargs):
-    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
-    auth = (orthanc_username, orthanc_password)
+    url = f"{config.ORTHANC_URL}/{endpoint.lstrip('/')}"
+    auth = (config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
     
     if 'auth' not in kwargs:
         kwargs['auth'] = auth

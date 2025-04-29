@@ -164,7 +164,7 @@ def is_dicom(data, type='file'):
     
 
 def retrieveDICOMInstance(oid, orthanc_url):
-    dicom_url = f"{orthanc_url}/instances/{oid}/file"
+    dicom_url = f"{config.ORTHANC_URL}/instances/{oid}/file"
     response = requests.get(dicom_url)
 
     if response.status_code != 200:
@@ -202,7 +202,7 @@ def upload_dicom(outputs, orthanc_url):
             pydicom.dcmwrite(file, output['data'])
             file.seek(0)
                 
-            upload_url = f"{orthanc_url}/instances"  # Orthanc的URL
+            upload_url = f"{config.ORTHANC_URL}/instances"  # Orthanc的URL
             response = requests.post(upload_url, data=file, headers={"Content-Type": "application/dicom"})
             if (response.status_code == 200):
                 results.append({'output_idx':i, 'status':'success', 'oid':response.json()['ID']})
@@ -226,7 +226,7 @@ def upload_attachment(file_stream, attach_to_oid, orthanc_url, file_type='json')
     '''
         Upload attachment to a dicom object
     '''
-    upload_url = f"{orthanc_url}/instances/{attach_to_oid}/attachments/{file_type}"
+    upload_url = f"{config.ORTHANC_URL}/instances/{attach_to_oid}/attachments/{file_type}"
     response = requests.post(upload_url, data=file_stream, headers={"Content-Type": f"application/{file_type}"})
     if (response.status_code == 200):
         return response.json()['ID']

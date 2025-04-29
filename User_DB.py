@@ -3,7 +3,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from flask import g
 from flask import current_app
-from pymongo import MongoClient
 from db_models import db
 from functools import wraps
 from db_models import Account, Group, Acc_Group, Dataset_Group

@@ -3,17 +3,18 @@ from flask_cors import CORS
 from flask import g
 import os
 import requests
+import config
 from MPF_Cal import mpf
 from User_DB import user, verify_token
-from flask import current_app
 from CRUD import crud
 from Retrieve import retrieve
 from Dashboard import dashboard
 from db_models import db
+from Encryption import ecryption
 from config import ProductionConfig
 from flask_migrate import Migrate
-from db_models import Account, Dataset, Group
 from Pipeline import pipeline_bp
+from cryptography.hazmat.primitives import serialization
 
 
 
@@ -26,7 +27,6 @@ migrate = Migrate(app, db)
 with app.app_context():
     db.create_all()
 
-# app.secret_key = "cuhkdiir"
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
 MPFUPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, "mpf")
@@ -35,13 +35,11 @@ os.makedirs(MPFUPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MPFUPLOAD_FOLDER"] = MPFUPLOAD_FOLDER
 
-orthanc_url = "http://127.0.0.1:8042"
-orthanc_username = "orthanc"
-orthanc_password = "orthanc"
+
 
 def orthanc_request(method, endpoint, **kwargs):
-    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
-    auth = (orthanc_username, orthanc_password)
+    url = f"{config.ORTHANC_URL}/{endpoint.lstrip('/')}"
+    auth = (config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
     
     # 如果没有指定auth参数，添加默认认证
     if 'auth' not in kwargs:
@@ -63,7 +61,7 @@ def get_file(url_path):
     # 使用认证信息请求Orthanc
     response = requests.get(
         file_url,
-        auth=(orthanc_username, orthanc_password)
+        auth=(config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
     )
 
     return response.content
@@ -86,6 +84,11 @@ app.register_blueprint(dashboard)
 
 # ---------------------------------------pipeline--------------------------------
 app.register_blueprint(pipeline_bp)
+
+# ---------------------------------------ecryption--------------------------------
+app.register_blueprint(ecryption)
+
+
 
 
 if __name__ == "__main__":

@@ -1,10 +1,7 @@
-import numpy as np
-from QMR.smooth.gaussian_blur import gaussian_blur
 import pydicom
 import logging
 import requests
 from queue import Queue
-import io
 import re
 import time
 import json
@@ -15,16 +12,14 @@ import os
 from middleware import token_required
 from QMR.MPFSL import MPFSL
 from ComfyUI.run_pipeline_latest  import DynamicPipeline
-
+import config
 
 pipeline_bp = Blueprint('pipeline', __name__)
-orthanc_url = "http://127.0.0.1:8042"
-orthanc_username = "orthanc"
-orthanc_password = "orthanc"
+
 
 def orthanc_request(method, endpoint, **kwargs):
-    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
-    auth = (orthanc_username, orthanc_password)
+    url = f"{config.ORTHANC_URL}/{endpoint.lstrip('/')}"
+    auth = (config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
     
     if 'auth' not in kwargs:
         kwargs['auth'] = auth
@@ -312,10 +307,10 @@ def process_dicom_output(outputs, orthanc_url="http://127.0.0.1:8042"):
                 
                 headers = {'Content-Type': 'application/dicom'}
                 response = requests.post(
-                    f"{orthanc_url}/instances", 
+                    f"{config.ORTHANC_URL}/instances", 
                     data=dicom_content,
                     headers=headers,
-                    auth=(orthanc_username, orthanc_password) 
+                    auth=(config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD) 
                 )
                 response.raise_for_status()
                 

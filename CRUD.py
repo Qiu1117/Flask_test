@@ -34,19 +34,21 @@ from sqlalchemy import update, text, func, and_, or_
 import sqlalchemy
 import requests
 import pydicom
+import config
+import base64
+import io
+from Encryption import decrypt_file, decrypt_form_data, load_private_key
+
+
 
 
 crud = Blueprint("crud", __name__)
-orthanc_url = "http://127.0.0.1:8042"
-orthanc_username = "orthanc"
-orthanc_password = "orthanc"
 
-# 通用Orthanc请求函数
+
 def orthanc_request(method, endpoint, **kwargs):
-    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
-    auth = (orthanc_username, orthanc_password)
+    url = f"{config.ORTHANC_URL}/{endpoint.lstrip('/')}"
+    auth = (config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
     
-    # 如果没有指定auth参数，添加默认认证
     if 'auth' not in kwargs:
         kwargs['auth'] = auth
         
@@ -1084,115 +1086,189 @@ def view_all_groups():
 @token_required()
 @permission_check(type='dataset', options='editable')
 def upload():
-    form_data = request.form
-    Dataset_Data = json.loads(form_data.get("dataset_data"))
-
-    Dataset_ID = Dataset_Data["dataset_id"]
-
-    dataset = Dataset.query.filter_by(id=Dataset_ID).first()
-    if dataset is None:
-        abort(404, description="Dataset not found")
-
-    files = []
-    for key in request.files.keys():
-        if key.startswith("file"):
-            files.extend(request.files.getlist(key))
-
-    if len(files) == 0:
-        return "No files uploaded."
-
-    for file in files:
+    try:
+        form_data = request.form
         
-        response = _upload_orthanc(file)
-        print(response)
+        is_encrypted = form_data.get("is_encrypted", "false").lower() == "true"
         
-        if (response.status_code == 200):
-            orthanc_data = json.loads(response.content)
+        if is_encrypted:
+            # 1. 加载私钥
+            private_key = load_private_key()
             
-
-            patient_pair = Dataset_Patients.query.filter(
-                and_(
-                    Dataset_Patients.patient_orthanc_id == orthanc_data["ParentPatient"],
-                    Dataset_Patients.dataset_id == Dataset_ID,
-                )
-            ).first()
-            if patient_pair is None:
-                _new_patient_pair(orthanc_data, Dataset_ID)
+            # 2. 解密表单数据(获取AES密钥和数据集信息)
+            decrypted_data = decrypt_form_data(form_data, private_key)
+            aes_key = decrypted_data["aes_key"]
+            Dataset_Data = decrypted_data.get("dataset_data", {})
+        else:
+            # 未加密的数据处理
+            Dataset_Data = json.loads(form_data.get("dataset_data", "{}"))
+        
+        # 3. 获取数据集ID
+        Dataset_ID = Dataset_Data.get("dataset_id")
+        if not Dataset_ID:
+            return jsonify({"error": "缺少数据集ID"}), 400
+        
+        # 4. 验证数据集存在
+        dataset = Dataset.query.filter_by(id=Dataset_ID).first()
+        if dataset is None:
+            abort(404, description="Dataset not found")
+        
+        # 5. 处理上传文件
+        files = []
+        for key in request.files.keys():
+            if key.startswith("file"):
+                files.extend(request.files.getlist(key))
+        
+        if len(files) == 0:
+            return "No files uploaded."
+        
+        # 6. 处理每个文件
+        for i, file in enumerate(files):
+            file_content = file.read()
+            
+            # 如果是加密文件，需要解密
+            if is_encrypted:
+                file_index = i  
+                iv_key = f"iv_{file_index}"
+                
+                if iv_key not in form_data:
+                    return jsonify({"error": f"Can not find File{i} IV"}), 400
+                
+                iv = base64.b64decode(form_data.get(iv_key))
+                decrypted_content = decrypt_file(file_content, iv, aes_key)
+                
+                # 创建一个新的文件对象用于上传到Orthanc
+                temp_file = io.BytesIO(decrypted_content)
+                temp_file.name = file.filename
             else:
-                patient_pair.valid = True
-                db.session.commit()
-
-            study_pair = Dataset_Studies.query.filter(
-                and_(
-                    Dataset_Studies.patient_orthanc_id == orthanc_data["ParentPatient"],
-                    Dataset_Studies.study_orthanc_id == orthanc_data["ParentStudy"],
-                    Dataset_Studies.dataset_id == Dataset_ID,
-                )
-            ).first()
-            if study_pair is None:
-                _new_study_pair(orthanc_data, Dataset_ID)
+                # 如果不是加密文件，重置文件指针
+                file.seek(0)
+                temp_file = file
+            
+            # 7. 上传文件到Orthanc
+            response = _upload_orthanc(temp_file)
+            
+            if response.status_code == 200:
+                orthanc_data = json.loads(response.content)
+                
+                # 8. 处理数据库记录
+                # Patient记录
+                patient_pair = Dataset_Patients.query.filter(
+                    and_(
+                        Dataset_Patients.patient_orthanc_id == orthanc_data["ParentPatient"],
+                        Dataset_Patients.dataset_id == Dataset_ID,
+                    )
+                ).first()
+                
+                if patient_pair is None:
+                    _new_patient_pair(orthanc_data, Dataset_ID)
+                else:
+                    patient_pair.valid = True
+                    db.session.commit()
+                
+                # Study记录
+                study_pair = Dataset_Studies.query.filter(
+                    and_(
+                        Dataset_Studies.patient_orthanc_id == orthanc_data["ParentPatient"],
+                        Dataset_Studies.study_orthanc_id == orthanc_data["ParentStudy"],
+                        Dataset_Studies.dataset_id == Dataset_ID,
+                    )
+                ).first()
+                
+                if study_pair is None:
+                    _new_study_pair(orthanc_data, Dataset_ID)
+                else:
+                    study_pair.valid = True
+                    db.session.commit()
+                
+                # Series记录
+                series_pair = Dataset_Series.query.filter(
+                    and_(
+                        Dataset_Series.patient_orthanc_id == orthanc_data["ParentPatient"],
+                        Dataset_Series.study_orthanc_id == orthanc_data["ParentStudy"],
+                        Dataset_Series.series_orthanc_id == orthanc_data["ParentSeries"],
+                        Dataset_Series.dataset_id == Dataset_ID,
+                    )
+                ).first()
+                
+                if series_pair is None:
+                    _new_series_pair(orthanc_data, Dataset_ID)
+                else:
+                    series_pair.valid = True
+                    db.session.commit()
+                
+                # Instance记录
+                instance_pair = Dataset_Instances.query.filter(
+                    and_(
+                        Dataset_Instances.series_orthanc_id == orthanc_data["ParentSeries"],
+                        Dataset_Instances.instance_orthanc_id == orthanc_data["ID"]
+                    )
+                ).first()
+                
+                if instance_pair is None:
+                    _new_instance_pair(orthanc_data)
+                else:
+                    instance_pair.status = 0
+                    db.session.commit()
             else:
-                study_pair.valid = True
-                db.session.commit()
+                # 上传失败处理
+                print(f"Fail to upload file to Orthanc: {response.content}")
+                return jsonify({
+                    "error": "Fail to upload file to Orthanc", 
+                    "message": response.content.decode('utf-8')
+                }), response.status_code
+        
+        return jsonify({"message": "Success to upload file to Orthanc", "success": True})
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Fail to upload file: {str(e)}")
+        return jsonify({"error": "Fail to upload file", "message": str(e)}), 500
+    
 
-            series_pair = Dataset_Series.query.filter(
-                and_(
-                    Dataset_Series.patient_orthanc_id == orthanc_data["ParentPatient"],
-                    Dataset_Series.study_orthanc_id == orthanc_data["ParentStudy"],
-                    Dataset_Series.series_orthanc_id == orthanc_data["ParentSeries"],
-                    Dataset_Series.dataset_id == Dataset_ID,
-                )
-            ).first()
-            if series_pair is None:
-                _new_series_pair(orthanc_data, Dataset_ID)
-            else:
-                series_pair.valid = True
-                db.session.commit()
-
-            instance_pair = Dataset_Instances.query.filter(
-                and_(
-                    Dataset_Instances.series_orthanc_id == orthanc_data["ParentSeries"],
-                    Dataset_Instances.instance_orthanc_id == orthanc_data["ID"]
-                )
-            ).first()
-            if instance_pair is None:
-                _new_instance_pair(orthanc_data)
-            else:
-                instance_pair.status = 0
-                db.session.commit()
-
-    return "Success upload"
-
-
-def _upload_orthanc(file):
-    upload_url = f"{orthanc_url}/instances"
-    if not file or not file.filename:
+def _upload_orthanc(file, filename=None):
+    upload_url = f"{config.ORTHANC_URL}/instances"
+    
+    is_bytesio = isinstance(file, io.BytesIO)
+    
+    if not hasattr(file, 'name') or not file.name:
         return "Empty filename."
     
-    current_position = file.stream.tell()
+    if is_bytesio:
+        stream = file
+        current_position = stream.tell()
+    else:
+        stream = file.stream
+        current_position = stream.tell()
+    stream.seek(0)
+    
+    try:
+        dicom_data = pydicom.dcmread(stream)
         
-    file.stream.seek(0)
-    dicom_data = pydicom.dcmread(file.stream)
+        if hasattr(dicom_data, 'SeriesDescription') and dicom_data.SeriesDescription == "DEFAULT PS SERIES":
+            stream.seek(current_position)
+            return {"status": "ignored", "message": "File ignored: SeriesDescription is 'DEFAULT PS SERIES'"}
+    except Exception as e:
+        stream.seek(current_position)
+        return {"status": "error", "message": f"Error reading DICOM data: {str(e)}"}
     
-    if hasattr(dicom_data, 'SeriesDescription') and dicom_data.SeriesDescription == "DEFAULT PS SERIES":
-        file.stream.seek(current_position)
-        return {"status": "ignored", "message": "File ignored: SeriesDescription is 'DEFAULT PS SERIES'"}
-    
-    file.stream.seek(0)
-    
-    username = "orthanc"
-    password = "orthanc"
+    stream.seek(0)
     headers = {"Content-Type": "application/dicom"}
     
-    response = requests.post(
-        upload_url, 
-        data=file.stream,
-        headers=headers,
-        auth=(username, password) if username and password else None
-    )
-    
-    file.stream.seek(0)
-    return response
+    try:
+        response = requests.post(
+            upload_url, 
+            data=stream,
+            headers=headers,
+            auth=(config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
+        )
+        
+        stream.seek(0)
+        return response
+    except Exception as e:
+        stream.seek(0)
+        return {"status": "error", "message": f"Upload failed: {str(e)}"}
 
 
 def _new_patient_pair(orthanc_data, Dataset_ID):

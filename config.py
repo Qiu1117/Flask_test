@@ -13,6 +13,9 @@ POSTGRESQL_INFO = dict(
 connection_info = 'postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}'
 db_url = connection_info.format(**POSTGRESQL_INFO)
 
+ORTHANC_URL = "http://127.0.0.1:8042"
+ORTHANC_USERNAME = "orthanc"
+ORTHANC_PASSWORD = "orthanc"
 
 class ProductionConfig():
     SECRET_KEY = "aK2UxC9p"

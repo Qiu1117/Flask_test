@@ -1,15 +1,11 @@
 from flask import (
-    Flask,
     jsonify,
     request,
-    stream_with_context,
     Blueprint,
 )
 from datetime import datetime, timedelta
 import math
 from middleware import token_required, permission_check
-import json
-import shortuuid
 from flask import g
 from db_models import (
     db,
@@ -26,23 +22,18 @@ from db_models import (
     Dataset_Series,
     Dataset_Instances,
 )
-from sqlalchemy.types import Unicode
 from sqlalchemy.orm import aliased
 from sqlalchemy import update, text, func, and_, or_
-import sqlalchemy
 import requests
-import pydicom
-
+import config
 
 dashboard = Blueprint("dashboard", __name__)
-orthanc_url = "http://127.0.0.1:8042"
-orthanc_username = "orthanc"
-orthanc_password = "orthanc"
+
 
 
 def orthanc_request(method, endpoint, **kwargs):
-    url = f"{orthanc_url}/{endpoint.lstrip('/')}"
-    auth = (orthanc_username, orthanc_password)
+    url = f"{config.ORTHANC_URL}/{endpoint.lstrip('/')}"
+    auth = (config.ORTHANC_USERNAME, config.ORTHANC_PASSWORD)
     
     # 如果没有指定auth参数，添加默认认证
     if 'auth' not in kwargs:
