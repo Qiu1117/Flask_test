@@ -1,5 +1,3 @@
-import json
-import os
 
 db_type='postgresql+psycopg2',
 POSTGRESQL_INFO = dict(
@@ -14,8 +12,10 @@ connection_info = 'postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_nam
 db_url = connection_info.format(**POSTGRESQL_INFO)
 
 ORTHANC_URL = "http://127.0.0.1:8042"
-ORTHANC_USERNAME = "orthanc"
-ORTHANC_PASSWORD = "orthanc"
+# ORTHANC_USERNAME = "orthanc"
+# ORTHANC_PASSWORD = "orthanc"
+ORTHANC_USERNAME = "admin"
+ORTHANC_PASSWORD = "qiuyishen.560022"
 
 class ProductionConfig():
     SECRET_KEY = "aK2UxC9p"

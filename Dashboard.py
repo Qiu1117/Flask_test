@@ -6,7 +6,6 @@ from flask import (
 from datetime import datetime, timedelta
 import math
 from middleware import token_required, permission_check
-from flask import g
 from db_models import (
     db,
     Account,

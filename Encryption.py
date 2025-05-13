@@ -11,7 +11,6 @@ from flask import (
 from middleware import token_required, permission_check
 import base64
 import json
-import io
 
 
 ecryption = Blueprint("ecryption", __name__)
@@ -26,7 +25,8 @@ def load_private_key():
         return private_key
     
     try:
-        with open(r"RSAKey\CUHK_private_key.pem", "rb") as key_file:
+        key_path = os.path.join("RSAKey", "CUHK_private_key.pem")
+        with open(key_path, "rb") as key_file:
             password = os.environ.get('PRIVATE_KEY_PASSWORD')
             private_key = serialization.load_pem_private_key(
                 key_file.read(),
@@ -42,9 +42,12 @@ def load_private_key():
 def get_public_key():
     """提供RSA公钥给前端用于加密"""
     try:
-        with open(r"RSAKey\CUHK_public_key.pem", "rb") as key_file:
+        key_path = os.path.join("RSAKey", "CUHK_public_key.pem")
+        with open(key_path, "rb") as key_file:
             public_key_pem = key_file.read()
-        return Response(public_key_pem, mimetype='application/x-pem-file')
+
+        public_key_str = public_key_pem.decode('utf-8')
+        return Response(public_key_str, mimetype='application/x-pem-file')
     except Exception as e:
         print(f"获取公钥失败: {str(e)}")
         return jsonify({"error": "获取公钥失败", "message": str(e)}), 500

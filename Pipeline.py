@@ -7,7 +7,7 @@ import time
 import json
 import threading
 from pathlib import Path
-from flask import request, Blueprint, jsonify, make_response,Response, stream_with_context
+from flask import request, Blueprint, jsonify, make_response, Response, stream_with_context
 import os
 from middleware import token_required
 from QMR.MPFSL import MPFSL
@@ -172,7 +172,7 @@ def run_pipeline():
 
         for node in nodes:
             if node['id'] == 1:  
-                setup_input_node(node, output_path, orthanc_url)
+                setup_input_node(node, output_path, config.ORTHANC_URL)
 
         workflow['nodes'] = nodes
 

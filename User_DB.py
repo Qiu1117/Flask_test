@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_file, session, Blueprint
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from flask import g
+from datetime import datetime, timezone, timedelta
 from flask import current_app
 from db_models import db
 from functools import wraps
@@ -41,6 +42,15 @@ def register():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+def check_session_timeout():
+    if 'last_activity' in session:
+        idle_time = datetime.now(timezone.utc).timestamp() - session['last_activity']
+        max_idle_time = current_app.permanent_session_lifetime.total_seconds()
+        if idle_time > max_idle_time:
+            session.clear()
+            return False
+        session['last_activity'] = datetime.now(timezone.utc).timestamp()
+    return True
 
 @user.route("/login", methods=["POST"])
 def login():
@@ -55,8 +65,17 @@ def login():
 
         login_info = Account.query.filter_by(username=username).first()
         if login_info and check_password_hash(login_info.password_hash, password):
+
+            login_info.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+
+            expiration = datetime.now(timezone.utc) + timedelta(days=3)
+
             token = jwt.encode(
-                {"account_id": login_info.id, "role": int(login_info.role)},
+                {"account_id": login_info.id, 
+                 "role": int(login_info.role),
+                 "exp": expiration
+                },
                 current_app.config["SECRET_KEY"],
                 algorithm="HS256",
             )
