@@ -42,15 +42,6 @@ def register():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-def check_session_timeout():
-    if 'last_activity' in session:
-        idle_time = datetime.now(timezone.utc).timestamp() - session['last_activity']
-        max_idle_time = current_app.permanent_session_lifetime.total_seconds()
-        if idle_time > max_idle_time:
-            session.clear()
-            return False
-        session['last_activity'] = datetime.now(timezone.utc).timestamp()
-    return True
 
 @user.route("/login", methods=["POST"])
 def login():
@@ -61,6 +52,7 @@ def login():
         data = request.get_json()
         username = data.get("username")
         password = data.get("password")
+        remember_me = data.get("remember_me", False)
         fetch = data.get("fetch_type", [])
 
         login_info = Account.query.filter_by(username=username).first()
@@ -69,7 +61,12 @@ def login():
             login_info.last_login = datetime.now(timezone.utc)
             db.session.commit()
 
-            expiration = datetime.now(timezone.utc) + timedelta(days=3)
+            expiration = datetime.now(timezone.utc) + timedelta(days=1)
+
+            if remember_me:
+                expiration = datetime.now(timezone.utc) + timedelta(days=3)  # longer expiration for remember me
+            else:
+                expiration = datetime.now(timezone.utc) + timedelta(days=1)  # shorter session
 
             token = jwt.encode(
                 {"account_id": login_info.id, 
@@ -84,6 +81,17 @@ def login():
             else:
                 infos = get_account_info(login_info.id)
 
+            session['username'] = username
+            session['account_id'] = login_info.id
+            session['last_activity'] = datetime.now(timezone.utc).timestamp()
+
+            if remember_me:
+                session.permanent = True
+                current_app.permanent_session_lifetime = timedelta(days=3)
+            else:
+                session.permanent = True
+                current_app.permanent_session_lifetime = timedelta(days=1)
+
             return jsonify({"status": "ok", "data": {"token": token, "infos": infos}})
         else:
             return jsonify({"status": "error", "message": "No such account!"})
@@ -97,11 +105,30 @@ def logout():
     session.pop("username", None)
     return jsonify({"valid": True, "message": "Logged out successfully"})
 
+def check_session_timeout():
+    """Helper function to check if the session has timed out"""
+    if 'last_activity' in session:
+        current_time = datetime.now(timezone.utc).timestamp()
+        last_activity = session.get('last_activity')
+        max_idle = current_app.permanent_session_lifetime.total_seconds()
+        
+        if current_time - last_activity > max_idle:
+            session.clear()
+            return False
+        
+        # Update the last activity time
+        session['last_activity'] = current_time
+    return True
+
 
 def verify_token(check_admin=False):
     def decorated(f):
         @wraps(f)
         def inner(*args, **kwargs):
+            # First check if session is still valid
+            if not check_session_timeout():
+                return jsonify({"status": "error", "message": "Session expired"}), 401
+                
             token = None
 
             error_token_missing = 0
@@ -123,7 +150,7 @@ def verify_token(check_admin=False):
                     jsonify(
                         {
                             "status": "error",
-                            "message": "Authentication token is missing or misformated",
+                            "message": "Authentication token is missing or misformatted",
                         }
                     ),
                     400,
@@ -133,12 +160,18 @@ def verify_token(check_admin=False):
                 data = jwt.decode(
                     token, current_app.config["SECRET_KEY"], algorithms=["HS256"]
                 )
+            except jwt.ExpiredSignatureError:
+                return jsonify({"status": "error", "message": "Token expired"}), 401
             except Exception as e:
                 return jsonify({"status": "error", "message": "Invalid JWT"}), 401
 
             try:
                 role = data["role"]
                 g.account_id = data["account_id"]
+                g.role = role
+                
+                # Update session last activity
+                session['last_activity'] = datetime.now(timezone.utc).timestamp()
             except Exception as e:
                 return (
                     jsonify(
@@ -160,3 +193,4 @@ def verify_token(check_admin=False):
         return inner
 
     return decorated
+

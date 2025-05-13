@@ -8,7 +8,6 @@ import jwt
 from functools import wraps
 from flask import g
 from sqlalchemy import update, text, func, and_
-from werkzeug.exceptions import BadRequest
 
 def token_required(check_admin=False):
     def decorated(f):
