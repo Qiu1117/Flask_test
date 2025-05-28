@@ -6,6 +6,7 @@ from sqlalchemy.sql.sqltypes import Boolean, Numeric, DateTime
 from sqlalchemy.dialects.postgresql import JSON, JSONB, ARRAY, ENUM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
 
 
 db = SQLAlchemy()
@@ -90,10 +91,10 @@ class Patient(Base):
     patient_orthanc_id = db.Column(String(64), primary_key=True)  
 
     patient_id = db.Column(String(30))
-    patient_name = db.Column(String(50))
+    patient_name = db.Column(String(64))
     patient_sex = db.Column(String(10))
-    patient_birthdate = db.Column(String(10))
-    patient_weight = db.Column(Integer)
+    patient_birthdate = db.Column(String(64))
+    patient_weight = db.Column(db.Float)
 
     valid = db.Column(Boolean, default=True)
 
@@ -116,15 +117,15 @@ class Study(Base):
     study_orthanc_id = db.Column(String(64), primary_key=True)
 
     study_instance_uid = db.Column(String(64))
-    study_date = db.Column(String(8))  # YYYYMMDD format
-    study_time = db.Column(String(6))  # HHMMSS format
+    study_date = db.Column(String(16))  # YYYYMMDD format
+    study_time = db.Column(String(32))  # HHMMSS format
     study_id = db.Column(String(16))
-    study_description = db.Column(String(64))
+    study_description = db.Column(String(255))
     accession_number = db.Column(String(16))
-    requested_procedure_description = db.Column(String(64))
-    institution_name = db.Column(String(64))
-    requesting_physician = db.Column(String(64))
-    referring_physician_name = db.Column(String(64))
+    requested_procedure_description = db.Column(String(128))
+    institution_name = db.Column(String(128))
+    requesting_physician = db.Column(String(128))
+    referring_physician_name = db.Column(String(128))
 
     valid = db.Column(Boolean, default=True)
 
@@ -150,15 +151,15 @@ class Series(Base):
     series_orthanc_id = db.Column(String(64), primary_key=True)
 
     series_instance_uid = db.Column(String(64))
-    series_date = db.Column(String(8))  # YYYYMMDD format
-    series_time = db.Column(String(16))  # HHMMSS format
-    modality = db.Column(String(16))
-    manufacturer = db.Column(String(64))
-    station_name = db.Column(String(64))
-    series_description = db.Column(String(64))
-    body_part_examined = db.Column(String(16))
-    sequence_name = db.Column(String(64))
-    protocol_name = db.Column(String(64))
+    series_date = db.Column(String(16))  # YYYYMMDD format
+    series_time = db.Column(String(32))  # HHMMSS format
+    modality = db.Column(String(64))
+    manufacturer = db.Column(String(128))
+    station_name = db.Column(String(128))
+    series_description = db.Column(String(255))
+    body_part_examined = db.Column(String(64))
+    sequence_name = db.Column(String(128))
+    protocol_name = db.Column(String(128))
     series_number = db.Column(Integer)
     cardiac_number_of_images = db.Column(Integer)
     images_in_acquisition = db.Column(Integer)
@@ -204,3 +205,14 @@ class Dataset_Instances(Base):
     instance_orthanc_id = db.Column(String(64),primary_key=True)
 
     status = db.Column(Numeric(1)) 
+
+class UserToken(db.Model):
+    __tablename__ = 'user_tokens'  
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('Account.id'), unique=True, index=True)  
+    token = db.Column(db.String(500), nullable=False, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now(timezone.utc))
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+
+    # 添加关系引用
+    user = db.relationship('Account', backref=db.backref('token', uselist=False))

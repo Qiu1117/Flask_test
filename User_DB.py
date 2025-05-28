@@ -4,50 +4,113 @@ import jwt
 from flask import g
 from datetime import datetime, timezone, timedelta
 from flask import current_app
-from db_models import db
+from db_models import db, Account, Group, Acc_Group, Dataset_Group, UserToken 
 from functools import wraps
-from db_models import Account, Group, Acc_Group, Dataset_Group
 from CRUD import get_account_info
-
+import redis
 
 user = Blueprint("user", __name__)
 
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, db=0)
+    redis_client.ping()  
+    USE_REDIS = True
+    print("Redis connected successfully")
+except Exception as e:
+    USE_REDIS = False
+    print(f"Redis connection failed: {str(e)}. Using database fallback.")
 
-@user.route("/register", methods=["POST"])
-def register():
-    try:
-        data = request.get_json()   
-        username = data.get('username')
-        password = data.get('password')
-        email = data.get('email')
-        role = data.get('role')
-
-        if not username or not email or not password:
-            return jsonify({'message': 'Missing data'}), 400
-
-        if Account.query.filter_by(username=username).first() is not None:
-            return jsonify({'message': 'User already exists'}), 409
+def check_session_timeout():
+    """Helper function to check if the session has timed out"""
+    if 'last_activity' in session:
+        current_time = datetime.now(timezone.utc).timestamp()
+        last_activity = session.get('last_activity')
+        max_idle = current_app.permanent_session_lifetime.total_seconds()
         
-        new_user = Account(
-            username=username,
-            email=email,
-            password_hash=generate_password_hash(password),
-            role=role
-        )
+        if current_time - last_activity > max_idle:
+            session.clear()
+            return False
+        
+        # Update the last activity time
+        session['last_activity'] = current_time
+    return True
 
-        db.session.add(new_user)
-        db.session.commit()
-
-        return jsonify({"status": "ok"})
+def store_token(user_id, token, expiration):
+    try:
+        if USE_REDIS:
+            # 获取旧token
+            existing_token = redis_client.get(f"user:{user_id}:token")
+            if existing_token:
+                # 将旧token标记为无效
+                redis_client.delete(f"token:{existing_token.decode()}:valid")
+            
+            # 存储新token
+            token_exp_seconds = int((expiration - datetime.now(timezone.utc)).total_seconds())
+            redis_client.set(f"user:{user_id}:token", token, ex=token_exp_seconds)
+            redis_client.set(f"token:{token}:valid", "1", ex=token_exp_seconds)
+            return True
+        else:
+            # 删除旧token
+            existing_token = UserToken.query.filter_by(user_id=user_id).first()
+            if existing_token:
+                db.session.delete(existing_token)
+            
+            # 添加新token
+            new_token = UserToken(
+                user_id=user_id,
+                token=token,
+                expires_at=expiration
+            )
+            db.session.add(new_token)
+            db.session.commit()
+            return True
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"Error storing token: {str(e)}")
+        return False
 
+def verify_stored_token(user_id, token):
+    """验证存储的token是否有效"""
+    try:
+        if USE_REDIS:
+            # Redis模式
+            current_token = redis_client.get(f"user:{user_id}:token")
+            if not current_token or current_token.decode() != token:
+                return False
+            
+            is_valid = redis_client.get(f"token:{token}:valid")
+            return is_valid is not None
+        else:
+            # 数据库模式
+            token_record = UserToken.query.filter_by(user_id=user_id).first()
+            if not token_record or token_record.token != token:
+                return False
+            
+            # 检查是否过期
+            return datetime.now(timezone.utc) < token_record.expires_at
+    except Exception as e:
+        print(f"Error verifying token: {str(e)}")
+        return False
+
+def clear_token(user_id, token):
+    """清除用户token"""
+    try:
+        if USE_REDIS:
+            # Redis模式
+            redis_client.delete(f"token:{token}:valid")
+            redis_client.delete(f"user:{user_id}:token")
+        else:
+            # 数据库模式
+            token_record = UserToken.query.filter_by(user_id=user_id).first()
+            if token_record:
+                db.session.delete(token_record)
+                db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error clearing token: {str(e)}")
+        return False
 
 @user.route("/login", methods=["POST"])
 def login():
-    """
-    file: swagger/login.yml
-    """
     try:
         data = request.get_json()
         username = data.get("username")
@@ -57,25 +120,26 @@ def login():
 
         login_info = Account.query.filter_by(username=username).first()
         if login_info and check_password_hash(login_info.password_hash, password):
-
             login_info.last_login = datetime.now(timezone.utc)
             db.session.commit()
 
-            expiration = datetime.now(timezone.utc) + timedelta(days=1)
-
             if remember_me:
-                expiration = datetime.now(timezone.utc) + timedelta(days=3)  # longer expiration for remember me
+                expiration = datetime.now(timezone.utc) + timedelta(days=3)
             else:
-                expiration = datetime.now(timezone.utc) + timedelta(days=1)  # shorter session
+                expiration = datetime.now(timezone.utc) + timedelta(days=1)
 
             token = jwt.encode(
                 {"account_id": login_info.id, 
                  "role": int(login_info.role),
-                 "exp": expiration
+                 "exp": expiration,
+                 "iat": datetime.now(timezone.utc)
                 },
                 current_app.config["SECRET_KEY"],
                 algorithm="HS256",
             )
+            
+            store_token(login_info.id, token, expiration)
+            
             if fetch:
                 infos = get_account_info(login_info.id, fetch)
             else:
@@ -99,33 +163,32 @@ def login():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @user.route("/logout", methods=["GET"])
 def logout():
-    session.pop("username", None)
+    try:
+        if 'account_id' in session:
+            user_id = session['account_id']
+            token = None
+            
+            # 获取当前token
+            if 'Authorization' in request.headers:
+                auth = request.headers['Authorization']
+                if auth and len(auth.split(" ")) == 2:
+                    token = auth.split(" ")[1]
+            
+            # 清除token
+            if token:
+                clear_token(user_id, token)
+    except Exception as e:
+        print(f"Error during logout: {str(e)}")
+    
+    session.clear()
     return jsonify({"valid": True, "message": "Logged out successfully"})
-
-def check_session_timeout():
-    """Helper function to check if the session has timed out"""
-    if 'last_activity' in session:
-        current_time = datetime.now(timezone.utc).timestamp()
-        last_activity = session.get('last_activity')
-        max_idle = current_app.permanent_session_lifetime.total_seconds()
-        
-        if current_time - last_activity > max_idle:
-            session.clear()
-            return False
-        
-        # Update the last activity time
-        session['last_activity'] = current_time
-    return True
-
 
 def verify_token(check_admin=False):
     def decorated(f):
         @wraps(f)
         def inner(*args, **kwargs):
-            # First check if session is still valid
             if not check_session_timeout():
                 return jsonify({"status": "error", "message": "Session expired"}), 401
                 
@@ -167,15 +230,20 @@ def verify_token(check_admin=False):
 
             try:
                 role = data["role"]
-                g.account_id = data["account_id"]
+                account_id = data["account_id"]
+                g.account_id = account_id
                 g.role = role
                 
-                # Update session last activity
+                # 验证token是否是该用户的有效token
+                if not verify_stored_token(account_id, token):
+                    return jsonify({"status": "error", "message": "Session expired or logged in on another device"}), 401
+                
+                # 更新session活动时间
                 session['last_activity'] = datetime.now(timezone.utc).timestamp()
             except Exception as e:
                 return (
                     jsonify(
-                        {"status": "error", "message": "Wrong content encoded in JWT"}
+                        {"status": "error", "message": f"JWT validation error: {str(e)}"}
                     ),
                     401,
                 )
@@ -193,4 +261,3 @@ def verify_token(check_admin=False):
         return inner
 
     return decorated
-

@@ -224,11 +224,12 @@ def read_message():
 # ------------------------------------------ Dataset --------------------------------------
 @crud.route(
     "/create_dataset", methods=["POST"]
-)  # will simultaneously create a default group for this dataset
+)  
 @token_required()
 def create_dataset():
     data = request.get_json()
     dataset_info = data.get("dataset_info", {})
+    dataset_owner = data.get("dataset_owner")
 
     # add this dataset to its default group
     dataset_name = dataset_info.get("dataset_name", "anonymous")
@@ -236,7 +237,7 @@ def create_dataset():
     default_group = Group(
         group_name=default_group_name,
         description=f"This is a default group for dataset {dataset_name}",
-        owner=g.account_id,
+        owner=dataset_owner,
     )
     db.session.add(default_group)
     db.session.commit()
@@ -555,7 +556,7 @@ def _get_accessible_datasets_from_account(account_id):
     )
 
     for acc_group, dataset_group, group, dataset in datasets:
-        owner = 1 if str(dataset.owner) == str(account_id) else 0
+        owner = int(account_id) if str(dataset.owner) == str(account_id) else 0
         if owner:
             data.append(
                 {

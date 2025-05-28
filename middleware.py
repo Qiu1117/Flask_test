@@ -1,56 +1,80 @@
 from flask import Flask, jsonify, request, Response, stream_with_context, Blueprint, abort
 from flask import current_app
-from db_models import db, Account, Dataset, Group, Acc_Group, Dataset_Group
-
+from db_models import db, Account, Dataset, Group, Acc_Group, Dataset_Group, UserToken
 import time
 import json
 import jwt
 from functools import wraps
 from flask import g
 from sqlalchemy import update, text, func, and_
+import redis
+from datetime import datetime, timezone
 
-def token_required(check_admin=False):
-    def decorated(f):
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, db=0)
+    redis_client.ping()  # 测试连接是否成功
+    USE_REDIS = True
+    print("Redis connected successfully")
+except Exception as e:
+    USE_REDIS = False
+    print(f"Redis connection failed: {str(e)}. Using database fallback.")
+
+def token_required(f=None, *, check_admin=False):
+    def decorator(f):
         @wraps(f)
         def inner(*args, **kwargs):
             token = None
-
-            error_token_missing = 0
-            if "Authorization" in request.headers:
-                if request.headers["Authorization"] and len(request.headers["Authorization"].split(" ")) == 2:
-                    token = request.headers["Authorization"].split(" ")[1]  
-                else:
-                    error_token_missing = 1
-            else:
-                error_token_missing = 1
+            if 'Authorization' in request.headers:
+                auth = request.headers['Authorization']
+                if auth and len(auth.split(" ")) == 2:
+                    token = auth.split(" ")[1]
+                    
             if not token:
-                error_token_missing = 1
+                return jsonify({"status": "error", "message": "Token is missing"}), 401
                 
-            if error_token_missing:
-                return jsonify({
-                    "status": "error",
-                    "message": "Authentication token is missing or misformated"
-                }), 400
-            
             try:
                 data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
-            except Exception as e:
-                return jsonify({"status": "error", "message": "Invalid JWT"}), 401
-
-            try:
-                role = data['role']
-                g.account_id = data['account_id']
-            except Exception as e:
-                return jsonify({"status": "error", "message": "Wrong content encoded in JWT"}), 401
-            
-            else:
-                if check_admin and role != 1:
+                account_id = data['account_id']
+                
+                # 使用相同的验证逻辑
+                if not verify_stored_token(account_id, token):
+                    return jsonify({"status": "error", "message": "Session expired or logged in on another device"}), 401
+                    
+                g.account_id = account_id
+                g.role = data.get('role')
+                
+                if check_admin and g.role != 1:
                     return jsonify({"status": "error", "message": "Required admin account"}), 401
-                else:
-                    return f(*args, **kwargs)
+                
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 401
+                
+            return f(*args, **kwargs)
         return inner
-    return decorated
+    
+    if f is not None:
+        return decorator(f)
+    return decorator
 
+def verify_stored_token(user_id, token):
+    """验证存储的token是否有效"""
+    try:
+        if USE_REDIS:
+            current_token = redis_client.get(f"user:{user_id}:token")
+            if not current_token or current_token.decode() != token:
+                return False
+            
+            is_valid = redis_client.get(f"token:{token}:valid")
+            return is_valid is not None
+        else:
+            token_record = UserToken.query.filter_by(user_id=user_id).first()
+            if not token_record or token_record.token != token:
+                return False
+            
+            return datetime.now(timezone.utc) < token_record.expires_at
+    except Exception as e:
+        print(f"Error verifying token: {str(e)}")
+        return False
 
 def permission_check(type=None, options=None):   
     ''' 
