@@ -9,7 +9,8 @@ from flask import request, Blueprint, send_file, jsonify, make_response, abort
 import os
 from middleware import token_required
 from datetime import datetime
-from CRUD import _upload_orthanc, _new_study_pair, _new_series_pair, _new_instance_pair
+from orthanc_utils import _upload_orthanc
+from data_manager import _new_study_pair, _new_series_pair, _new_instance_pair
 from db_models import (
     Dataset_Studies,
     Dataset_Series,

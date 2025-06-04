@@ -1,8 +1,8 @@
 
 db_type='postgresql+psycopg2',
 POSTGRESQL_INFO = dict(
-    db_name="Cloud_user_system", # local-test
-    # db_name="cloud_user_system",
+    # db_name="Cloud_user_system", # local-test
+    db_name="cloud_user_system",
     user="postgres",
     password="qiu560022",
     host="localhost",

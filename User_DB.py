@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from flask import current_app
 from db_models import db, Account, Group, Acc_Group, Dataset_Group, UserToken 
 from functools import wraps
-from CRUD import get_account_info
+from accounts import get_account_info
 import redis
 
 user = Blueprint("user", __name__)

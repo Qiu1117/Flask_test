@@ -6,7 +6,7 @@ import requests
 import config
 from MPF_Cal import mpf
 from User_DB import user, verify_token
-from CRUD import crud
+from crud_main import crud
 from Retrieve import retrieve
 from Dashboard import dashboard
 from db_models import db
@@ -92,4 +92,4 @@ app.register_blueprint(ecryption)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0")
+     app.run(host="0.0.0.0", debug=True, use_reloader=False)
