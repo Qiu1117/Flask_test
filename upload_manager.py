@@ -17,7 +17,7 @@ from db_models import Dataset
 
 def create_dataset_directory(dataset_id, dataset_name=None):
     """Create directory structure for dataset storage"""
-    base_dir = "datasets"
+    base_dir = "Datasets"
     os.makedirs(base_dir, exist_ok=True)
     
     if dataset_name:
@@ -26,6 +26,10 @@ def create_dataset_directory(dataset_id, dataset_name=None):
         dataset_dir = os.path.join(base_dir, f"dataset_{dataset_id}")
     
     os.makedirs(dataset_dir, exist_ok=True)
+
+    dataset_report_dir = os.path.join(dataset_dir, f"Reports")
+    os.makedirs(dataset_report_dir, exist_ok=True)
+
     return dataset_dir
 
 

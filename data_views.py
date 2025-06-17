@@ -113,7 +113,7 @@ def _get_instance_taginfo(instance_orthanc_id):
     return main_dicom_tags
 
 
-def search_Patient():  # 添加这个函数
+def search_Patient():  
     dataset_id = request.args['dataset_id']
 
     dataset_patients = Dataset_Patients.query.filter(

@@ -261,3 +261,40 @@ def verify_token(check_admin=False):
         return inner
 
     return decorated
+
+
+@user.route("/register", methods=["POST"])
+@verify_token(check_admin=True)
+def register():
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        email = data.get("email")
+        role = data.get("role", 0)
+
+        if not username or not password:
+            return jsonify({"status": "error", "message": "Username and password required"}), 400
+
+        existing_user = Account.query.filter_by(username=username).first()
+        if existing_user:
+            return jsonify({"status": "error", "message": "Username already exists"}), 400
+
+        password_hash = generate_password_hash(password)
+        
+        new_account = Account(
+            username=username,
+            password_hash=password_hash,
+            email=email,
+            role=role
+        )
+        
+        db.session.add(new_account)
+        db.session.commit()
+
+        return jsonify({"status": "ok", "message": "Account created successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    

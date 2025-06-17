@@ -117,13 +117,32 @@ def permission_check(type=None, options=None):
                         permission = True if str(acc_id) == str(owner) or editable else False 
                     else:
                         raise NotImplementedError("Invalid options!")
-            if type == 'dataset' or type == 'either':
+            if type in ['dataset', 'either']:
                 dataset_id = data.get('dataset_id')
-                dataset = Dataset.query.filter_by(id=dataset_id).first()
-                if dataset is None:
-                    abort(404, description="Dataset not found")
-                owner = dataset.owner
-                permission = permission or (True if str(acc_id) == str(owner) else False)
+                if dataset_id:
+                    dataset = Dataset.query.filter_by(id=dataset_id).first()
+                    if dataset:
+                        dataset_permission = (acc_id == dataset.owner)
+                        
+                        # Also check if user has group permission for this dataset
+                        dataset_groups = Dataset_Group.query.filter_by(
+                            dataset_id=dataset_id, valid=True
+                        ).all()
+                        
+                        for dg in dataset_groups:
+                            group_right = Acc_Group.query.filter(and_(
+                                Acc_Group.acc_id==acc_id,
+                                Acc_Group.group_id==dg.group_id,
+                                Acc_Group.status == 0
+                            )).first()
+                            
+                            if group_right:
+                                if options == 'editable':
+                                    dataset_permission = dataset_permission or group_right.editable or group_right.is_owner
+                                elif options == 'can_upload_dataset':
+                                    dataset_permission = dataset_permission or group_right.can_upload_dataset or group_right.is_owner
+                                
+                        permission = permission or dataset_permission
 
             if type not in ['group', 'dataset', 'either']:
                 raise NotImplementedError("No such type!")

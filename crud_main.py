@@ -210,3 +210,70 @@ def upload_route():
 @permission_check(type='dataset', options='editable')
 def upload_archive_route():
     return upload_archive()
+
+@crud.route("/get_dataset_reports", methods=["GET"])
+@token_required()
+def get_dataset_reports():
+    try:
+        dataset_id = request.args.get('dataset_id')
+        
+        if not dataset_id:
+            return jsonify({"status": "error", "message": "Dataset ID required"}), 400
+        
+        dataset = Dataset.query.filter_by(id=dataset_id).first()
+        base_dir = "Datasets"
+        if dataset.dataset_name:
+            dataset_dir = os.path.join(base_dir, f"{dataset.dataset_name}_{dataset_id}")
+        else:
+            dataset_dir = os.path.join(base_dir, f"dataset_{dataset_id}")
+        
+        reports_dir = os.path.join(dataset_dir, "Reports")
+        
+        reports = []
+        if os.path.exists(reports_dir):
+            for filename in os.listdir(reports_dir):
+                file_path = os.path.join(reports_dir, filename)
+                # reportname:{dataset_name}_{dataset_id}_{datetime}.zip
+                if os.path.isfile(file_path):
+                    parts = filename.split('_')
+                
+                    datetime_part = ""
+                    if len(parts) >= 3:
+                        datetime_part = '_'.join(parts[2:]).split('.')[0]
+                    
+                    file_size = os.path.getsize(file_path)
+                    reports.append({
+                        'id': dataset_id,
+                        'filename': filename,
+                        'description': f'Dataset analysis report - {datetime_part}',
+                        'file_path': file_path,
+                        'datetime': datetime_part,
+                        'size': file_size
+                    })
+        
+        reports.sort(key=lambda x: x.get('datetime', ''), reverse=True)
+        
+        return jsonify({"status": "ok", "data": reports}), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+@crud.route("/download_report", methods=["POST"])
+@token_required()
+def download_report():
+    try:
+        data = request.get_json()
+        file_path = data.get('file_path')
+        filename = data.get('filename')
+        
+        if not file_path:
+            return jsonify({"status": "error", "message": "File path required"}), 400
+            
+        return send_file(file_path, as_attachment=True, download_name=filename)
+        
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": "Report file not found"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
